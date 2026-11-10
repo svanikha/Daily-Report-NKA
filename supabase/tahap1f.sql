@@ -12,7 +12,7 @@ create table if not exists public.social_activities (
   pc_id uuid references public.profiles(id),
   diinput_oleh uuid not null references public.profiles(id),   -- diisi otomatis oleh trigger
   tanggal date not null,
-  kode text not null check (kode in ('fb_posting', 'tiktok_konten', 'tiktok_live', 'ig_story', 'wa_story')),
+  kode text not null check (kode in ('fb_posting', 'tiktok_live', 'ig_story', 'wa_story')),
   jumlah int not null check (jumlah > 0),
   link text,
   created_at timestamptz not null default now()
@@ -78,7 +78,6 @@ create or replace function public.sosmed_label(p_kode text) returns text
 language sql immutable as $$
   select case p_kode
     when 'fb_posting' then 'FB Marketplace - Posting'
-    when 'tiktok_konten' then 'TikTok - Konten diupload'
     when 'tiktok_live' then 'TikTok - Live'
     when 'ig_story' then 'Instagram - Update story'
     when 'wa_story' then 'WhatsApp - Update story'

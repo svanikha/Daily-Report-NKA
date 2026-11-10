@@ -8,7 +8,7 @@ const kreditViaList = ['Avanto', 'Kredivo', 'HCI', 'Indodana', 'Kreditplus', 'Ak
 /// Leasing untuk cek limit (sama dengan pilihan Kredit di penjualan).
 const leasingList = kreditViaList;
 
-/// Aktivitas sosmed (sama dengan Daily Report OS).
+/// Aktivitas sosmed (seperti Daily Report OS, tanpa TikTok konten).
 class SosmedDef {
   final String kode;
   final String platform;
@@ -20,7 +20,6 @@ class SosmedDef {
 
 const sosmedDefs = [
   SosmedDef('fb_posting', 'FB Marketplace', 'Posting', 'kali'),
-  SosmedDef('tiktok_konten', 'TikTok', 'Konten diupload', 'konten'),
   SosmedDef('tiktok_live', 'TikTok', 'Live', 'kali'),
   SosmedDef('ig_story', 'Instagram', 'Update story', 'kali'),
   SosmedDef('wa_story', 'WhatsApp', 'Update story', 'kali'),
