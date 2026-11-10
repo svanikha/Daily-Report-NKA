@@ -1,0 +1,31 @@
+name: daily_report_nka
+description: Daily Report NKA - laporan harian Product Consultant OPPO di toko Erafone Big Sampit.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  supabase_flutter: any
+  intl: any
+  image_picker: any
+  image: any
+  # Dikunci di bawah v23: v23 butuh compileSdk 37 yang belum didukung Gradle bawaan Flutter.
+  flutter_local_notifications: '>=19.0.0 <23.0.0'
+  timezone: any
+  android_intent_plus: any
+  url_launcher: any
+  http: any
+  share_plus: any
+  flutter_contacts: ^1.1.9
+  geolocator: any
+  firebase_core: any
+  firebase_messaging: any
+
+flutter:
+  uses-material-design: true

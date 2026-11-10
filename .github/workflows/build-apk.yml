@@ -1,0 +1,293 @@
+name: Build APK
+
+# Daily Report NKA. Isi di repo GitHub -> Settings -> Secrets and variables -> Actions:
+#   Variables : SUPABASE_URL, SUPABASE_ANON_KEY (wajib)
+#               FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_SENDER_ID, FIREBASE_PROJECT_ID (push, opsional)
+#               FIREBASE_HOSTING_PROJECT (versi web, opsional)
+#   Secrets   : SUPABASE_SECRET_KEY (update di dalam aplikasi, opsional)
+#               FIREBASE_HOSTING_SA (versi web, opsional)
+
+on:
+  push:
+    branches: [main, uji]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle (kurangi unduhan dari GitHub)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: gradle-${{ runner.os }}-v1-${{ github.run_id }}
+          restore-keys: gradle-${{ runner.os }}-v1-
+
+      # Keystore khusus NKA (beda dengan Daily Report OS, jadi APK NKA tidak bisa menimpa APK OS).
+      # Build pertama membuatnya lalu menyimpannya ke repo, build berikutnya memakai file yang sama
+      # agar update APK bisa di-install di atas versi lama.
+      - name: Pasang keystore (tanda tangan APK tetap sama tiap build)
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ci/debug.keystore ]; then
+            echo "Keystore belum ada, membuat keystore baru untuk Daily Report NKA"
+            keytool -genkeypair -v -keystore ci/debug.keystore -storepass android -alias androiddebugkey \
+              -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Daily Report NKA, O=OPPO Big Sampit, C=ID"
+            git config user.name ci
+            git config user.email ci@users.noreply.github.com
+            git add ci/debug.keystore
+            git commit -m "CI: keystore Daily Report NKA [skip ci]"
+            git push
+          fi
+          cp ci/debug.keystore ~/.android/debug.keystore
+
+      - name: Siapkan folder Android
+        run: |
+          flutter --version | tee ci-log.txt
+          flutter create --org com.oppobigsampit --project-name daily_report_nka --platforms=android . 2>&1 | tail -5
+          rm -rf test
+          python3 ci/patch_android.py
+
+      - name: Ambil dependency
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee -a ci-log.txt
+
+      - name: Analisa kode
+        id: analyze
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          echo "===== ANALYZE =====" >> ci-log.txt
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee -a ci-log.txt
+
+      - name: Build APK
+        id: build
+        env:
+          SB_URL: ${{ vars.SUPABASE_URL }}
+          SB_ANON: ${{ vars.SUPABASE_ANON_KEY }}
+          FB_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          FB_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          FB_SENDER_ID: ${{ vars.FIREBASE_SENDER_ID }}
+          FB_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          set -o pipefail
+          echo "===== BUILD =====" >> ci-log.txt
+          # Buang spasi, tanda kutip, dan baris baru yang ikut tertempel di Variables
+          clean() { printf '%s' "$1" | tr -d '[:space:]"'"'"; }
+          SB_URL="$(clean "$SB_URL")"; SB_ANON="$(clean "$SB_ANON")"
+          API_KEY="$(clean "$FB_API_KEY")"; APP_ID="$(clean "$FB_APP_ID")"
+          SENDER_ID="$(clean "$FB_SENDER_ID")"; PROJECT_ID="$(clean "$FB_PROJECT_ID")"
+          echo "Supabase: url=$SB_URL anon_key=${#SB_ANON}" | tee -a ci-log.txt
+          echo "Firebase: api_key=${#API_KEY} app_id=${#APP_ID} sender_id=${#SENDER_ID} project_id=$PROJECT_ID" | tee -a ci-log.txt
+          DEFINES=(--dart-define="BUILD_NUMBER=${{ github.run_number }}"
+                   --dart-define="UPDATE_CHANNEL=${{ github.ref == 'refs/heads/main' && 'rilis' || 'uji' }}"
+                   --dart-define="FIREBASE_API_KEY=$API_KEY"
+                   --dart-define="FIREBASE_APP_ID=$APP_ID"
+                   --dart-define="FIREBASE_SENDER_ID=$SENDER_ID"
+                   --dart-define="FIREBASE_PROJECT_ID=$PROJECT_ID")
+          if [ -n "$SB_URL" ]; then DEFINES+=(--dart-define="SUPABASE_URL=$SB_URL" --dart-define="SUPABASE_ANON_KEY=$SB_ANON"); fi
+          # Khusus HP 64-bit (arm64) agar APK sekitar 30 MB (batas upload Supabase Free 50 MB)
+          build() {
+            flutter build apk --release --target-platform android-arm64 \
+              --build-name="1.0.${{ github.run_number }}" \
+              --build-number="${{ github.run_number }}" \
+              "${DEFINES[@]}" \
+              2>&1 | tee build-full.txt
+          }
+          # Ulangi otomatis bila gagal karena gangguan unduh (misal GitHub 504)
+          ok=0
+          for i in 1 2 3 4; do
+            if build; then ok=1; break; fi
+            if ! grep -qiE '50[0-9]|timed? ?out|downloading artifacts|Could not (GET|download|resolve)' build-full.txt; then break; fi
+            echo "Percobaan build $i gagal karena jaringan, ulangi..." | tee -a ci-log.txt
+            sleep $((i * 60))
+          done
+          tail -n 60 build-full.txt >> ci-log.txt
+          [ "$ok" = 1 ]
+
+      - name: Simpan log build gagal
+        if: failure()
+        run: |
+          if [ -f build-full.txt ]; then
+            grep -nE "error|Error|ERROR|FAILURE|What went wrong|Exception" build-full.txt | head -n 150 >> ci-log.txt || true
+            tail -n 120 build-full.txt >> ci-log.txt
+          fi
+
+      - name: Kirim log ke branch ci-logs
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          cp ci-log.txt "$RUNNER_TEMP/logs/ci-log.txt"
+          cd "$RUNNER_TEMP/logs"
+          echo "run ${{ github.run_number }} | commit ${{ github.sha }} | analyze=${{ steps.analyze.outcome }} build=${{ steps.build.outcome }}" > status.txt
+          git init -q
+          git checkout -q -b ci-logs
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "log run ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-logs
+
+      - name: Siapkan file APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk "DailyReportNKA-v1.0.${{ github.run_number }}.apk"
+
+      # Branch selain main: APK hanya disimpan sebagai artifact untuk uji coba
+      - name: Simpan APK uji coba (artifact)
+        if: github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DailyReportNKA-v1.0.${{ github.run_number }}-uji
+          path: DailyReportNKA-v1.0.${{ github.run_number }}.apk
+
+      # Update di dalam aplikasi: unggah APK + latest.json ke bucket publik "apk" di Supabase.
+      - name: Unggah APK untuk update di aplikasi (Supabase)
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SB_URL: ${{ vars.SUPABASE_URL }}
+          CH: ${{ github.ref == 'refs/heads/main' && 'rilis' || 'uji' }}
+          N: ${{ github.run_number }}
+        run: |
+          if [ -z "$SB_KEY" ] || [ -z "$SB_URL" ]; then echo "SUPABASE_SECRET_KEY / SUPABASE_URL belum diisi, langkah ini dilewati"; exit 0; fi
+          SB_KEY="$(printf '%s' "$SB_KEY" | tr -d '[:space:]')"
+          SB_URL="$(printf '%s' "$SB_URL" | tr -d '[:space:]"' | sed 's:/*$::')"
+          F="DailyReportNKA-v1.0.$N.apk"
+          BASE="$SB_URL/storage/v1/object"
+          AUTH=(-H "apikey: $SB_KEY")
+          case "$SB_KEY" in eyJ*) AUTH+=(-H "Authorization: Bearer $SB_KEY");; esac
+          ls -lh "$F" | tee -a ci-log.txt
+          curl -sS --fail-with-body -X POST "$BASE/apk/$CH/$F" "${AUTH[@]}" \
+            -H "x-upsert: true" -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @"$F"
+          MSG="$(git log -1 --format=%s)"
+          jq -n --argjson code "$N" --arg name "1.0.$N" --arg msg "$MSG" \
+            --arg url "$SB_URL/storage/v1/object/public/apk/$CH/$F" \
+            '{version_code: $code, version_name: $name, url: $url, catatan: $msg}' > latest.json
+          cat latest.json
+          # latest_sm.json: selalu diperbarui, dibaca akun TL, Trainer, dan PIC NKA.
+          curl -sS --fail-with-body -X POST "$BASE/apk/$CH/latest_sm.json" "${AUTH[@]}" \
+            -H "x-upsert: true" -H "cache-control: max-age=60" -H "Content-Type: application/json" \
+            --data-binary @latest.json
+          # latest.json: dibaca akun PC. Hanya diperbarui jika pesan commit mengandung [pc].
+          if git log -1 --format=%B | grep -qi '\[pc\]'; then
+            echo "Update juga dikirim ke PC ([pc])" | tee -a ci-log.txt
+            curl -sS --fail-with-body -X POST "$BASE/apk/$CH/latest.json" "${AUTH[@]}" \
+              -H "x-upsert: true" -H "cache-control: max-age=60" -H "Content-Type: application/json" \
+              --data-binary @latest.json
+          else
+            echo "Update hanya untuk TL, Trainer, PIC" | tee -a ci-log.txt
+          fi
+
+      - name: Upload APK ke Releases
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Daily Report NKA v1.0.${{ github.run_number }}
+          body: |
+            APK Daily Report NKA build ${{ github.run_number }}.
+            Download file .apk di bawah lalu install di HP Android.
+          files: DailyReportNKA-v1.0.${{ github.run_number }}.apk
+          make_latest: true
+
+  # Versi web untuk TL, Trainer, dan PIC NKA, di-deploy ke Firebase Hosting.
+  # Butuh variable FIREBASE_HOSTING_PROJECT dan secret FIREBASE_HOSTING_SA.
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Siapkan folder web
+        run: |
+          flutter create --org com.oppobigsampit --project-name daily_report_nka --platforms=web . 2>&1 | tail -3
+          rm -rf test
+          sed -i 's|<title>.*</title>|<title>Daily Report NKA</title>|' web/index.html
+          sed -i 's/"name": "[^"]*"/"name": "Daily Report NKA"/; s/"short_name": "[^"]*"/"short_name": "Report NKA"/' web/manifest.json
+
+      - name: Build web
+        env:
+          SB_URL: ${{ vars.SUPABASE_URL }}
+          SB_ANON: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          set -o pipefail
+          clean() { printf '%s' "$1" | tr -d '[:space:]"'"'"; }
+          SB_URL="$(clean "$SB_URL")"; SB_ANON="$(clean "$SB_ANON")"
+          flutter pub get
+          flutter build web --release --dart-define="BUILD_NUMBER=${{ github.run_number }}" \
+            --dart-define="SUPABASE_URL=$SB_URL" --dart-define="SUPABASE_ANON_KEY=$SB_ANON" 2>&1 | tee web-build.txt
+
+      - name: Cek kunci Firebase Hosting
+        id: cek
+        env:
+          SA: ${{ secrets.FIREBASE_HOSTING_SA }}
+          PRJ: ${{ vars.FIREBASE_HOSTING_PROJECT }}
+        run: |
+          if [ -n "$SA" ] && [ -n "$PRJ" ]; then echo "ada=1" >> "$GITHUB_OUTPUT"; else echo "FIREBASE_HOSTING_SA / FIREBASE_HOSTING_PROJECT belum diisi, deploy dilewati"; fi
+
+      - name: Deploy ke Firebase Hosting
+        id: deploy
+        if: steps.cek.outputs.ada == '1'
+        env:
+          SA: ${{ secrets.FIREBASE_HOSTING_SA }}
+          PRJ: ${{ vars.FIREBASE_HOSTING_PROJECT }}
+          IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          set -o pipefail
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          if [ "$IS_MAIN" = "true" ]; then
+            npx -y firebase-tools@latest deploy --only hosting --project "$PRJ" --non-interactive 2>&1 | tee deploy.txt
+            echo "details_url=https://$PRJ.web.app" >> "$GITHUB_OUTPUT"
+          else
+            npx -y firebase-tools@latest hosting:channel:deploy uji --expires 30d --project "$PRJ" --non-interactive 2>&1 | tee deploy.txt
+            U="$(grep -oE "https://$PRJ--uji-[a-z0-9]+\.web\.app" deploy.txt | head -1)"
+            echo "details_url=$U" >> "$GITHUB_OUTPUT"
+          fi
+          rm -f "$RUNNER_TEMP/sa.json"
+
+      - name: Catat hasil web ke branch ci-logs-web
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/weblog"
+          {
+            echo "run ${{ github.run_number }} | commit ${{ github.sha }} | ref ${{ github.ref_name }}"
+            echo "deploy=${{ steps.deploy.outcome }}"
+            echo "url=${{ steps.deploy.outputs.details_url }}"
+            echo "--- build (akhir) ---"
+            tail -n 40 web-build.txt 2>/dev/null || true
+            echo "--- deploy ---"
+            tail -n 60 deploy.txt 2>/dev/null || true
+          } > "$RUNNER_TEMP/weblog/web-status.txt"
+          cd "$RUNNER_TEMP/weblog"
+          git init -q
+          git checkout -q -b ci-logs-web
+          git add .
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "web run ${{ github.run_number }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-logs-web
