@@ -8,6 +8,7 @@ import 'config.dart';
 import 'screens/session_gate.dart';
 import 'services/notif_service.dart';
 import 'services/push_service.dart';
+import 'services/update_service.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -18,6 +19,8 @@ Future<void> main() async {
   // Versi web hanya untuk dashboard admin: tanpa notifikasi HP dan push Firebase.
   if (!kIsWeb) await PushService.init();
   runApp(const DailyReportApp());
+  // Cek update saat aplikasi dibuka, setiap kembali dari latar belakang, dan tiap 30 menit.
+  UpdateService.start();
 }
 
 class DailyReportApp extends StatelessWidget {
@@ -27,6 +30,7 @@ class DailyReportApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Daily Report NKA',
+      navigatorKey: UpdateService.navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       locale: const Locale('id', 'ID'),

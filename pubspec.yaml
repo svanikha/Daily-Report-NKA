@@ -26,6 +26,8 @@ dependencies:
   geolocator: any
   firebase_core: any
   firebase_messaging: any
+  # Update di dalam aplikasi: unduh APK baru lalu buka layar pasang Android
+  ota_update: ^7.1.0
 
 flutter:
   uses-material-design: true

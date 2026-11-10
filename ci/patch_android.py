@@ -22,6 +22,7 @@ perms = [
     "android.permission.VIBRATE",
     "android.permission.ACCESS_FINE_LOCATION",
     "android.permission.ACCESS_COARSE_LOCATION",
+    "android.permission.REQUEST_INSTALL_PACKAGES",
 ]
 perm_xml = "".join(f'    <uses-permission android:name="{p}"/>\n' for p in perms if p not in m)
 m = re.sub(r"(<manifest[^>]*>\s*\n)", lambda x: x.group(1) + perm_xml, m, count=1)
@@ -39,6 +40,36 @@ receivers = """
 """
 if "ScheduledNotificationReceiver" not in m:
     m = m.replace("</application>", receivers + "    </application>", 1)
+
+# Update di dalam aplikasi (plugin ota_update): FileProvider untuk membuka APK unduhan
+# di layar pasang Android, dan receiver hasil pemasangan.
+ota = """
+        <provider
+            android:name="sk.fourq.otaupdate.OtaUpdateFileProvider"
+            android:authorities="${applicationId}.ota_update_provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/filepaths" />
+        </provider>
+        <receiver android:name="sk.fourq.otaupdate.InstallResultReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="${applicationId}.ACTION_INSTALL_COMPLETE"/>
+            </intent-filter>
+        </receiver>
+"""
+if "OtaUpdateFileProvider" not in m:
+    m = m.replace("</application>", ota + "    </application>", 1)
+
+xml_dir = root / "app" / "src" / "main" / "res" / "xml"
+xml_dir.mkdir(parents=True, exist_ok=True)
+(xml_dir / "filepaths.xml").write_text(
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<paths xmlns:android="http://schemas.android.com/apk/res/android">\n'
+    '    <files-path name="internal_apk_storage" path="ota_update/"/>\n'
+    '</paths>\n'
+)
 
 queries = """
         <package android:name="com.whatsapp" />
