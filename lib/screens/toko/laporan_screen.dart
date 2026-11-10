@@ -39,6 +39,10 @@ class _LaporanScreenState extends State<LaporanScreen> {
     });
     try {
       _r = asMap(await Session.db.rpc('rekap_toko', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl}));
+      try {
+        // Activity sosmed & cek limit (tahap1f.sql). Jika belum dijalankan, bagian Activity dikosongkan.
+        _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
+      } catch (_) {}
     } catch (e) {
       _error = errMsg(e);
     }
@@ -234,6 +238,8 @@ class LaporanCard extends StatelessWidget {
             Text('Kurang: ${display.where((d) => d['ok'] != true).map((d) => d['nama']).join(', ')}',
                 style: const TextStyle(color: _muted, fontSize: 11)),
         ]),
+        // ACTIVITY: sosmed & cek limit leasing
+        if (r['activity'] != null) _activitySection(asMap(r['activity'])),
         if (ist != null)
           _section('ISTIRAHAT', [
             _line(
@@ -297,6 +303,32 @@ class LaporanCard extends StatelessWidget {
           ),
         ]),
       );
+
+  Widget _activitySection(Map<String, dynamic> a) {
+    final hari = asMap(a['sosmed_hari']);
+    final bulan = asMap(a['sosmed_bulan']);
+    final leasing = asList(a['leasing_hari']);
+    final lb = asMap(a['leasing_bulan']);
+    final adaSosmed = sosmedDefs.any((d) => toNum(hari[d.kode]) > 0);
+    return _section('ACTIVITY', [
+      if (!adaSosmed)
+        const Text('Sosmed: belum ada', style: TextStyle(color: _muted, fontSize: 12))
+      else
+        for (final d in sosmedDefs)
+          if (toNum(hari[d.kode]) > 0)
+            _line(d.label, '${angka(toNum(hari[d.kode]))} ${d.satuan} (bulan ini ${angka(toNum(bulan[d.kode]))})', small: true),
+      const SizedBox(height: 4),
+      if (leasing.isEmpty)
+        const Text('Cek limit leasing: belum ada', style: TextStyle(color: _muted, fontSize: 12))
+      else
+        for (final l in leasing)
+          _line('Cek limit ${l['leasing']}',
+              l['hasil'] == 'Approve' ? 'Approve ${rupiah(toNum(l['limit']))}' : 'Reject',
+              small: true, color: l['hasil'] == 'Approve' ? _green : _red),
+      if (toNum(lb['total']) > 0)
+        _line('Cek limit bulan ini', '${lb['total']}x (${lb['approve']} approve · ${lb['reject']} reject)', small: true),
+    ]);
+  }
 
   /// Satu segmen harga: OPPO vs brand lain + MS OPPO.
   Widget _segmenLine(String seg, num oppo, List<Map<String, dynamic>> detail) {

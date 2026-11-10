@@ -6,6 +6,7 @@ import '../../utils.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
 import '../pc/istirahat_card.dart';
+import 'activity_screen.dart';
 import 'display_screen.dart';
 import 'ms_allbrand_screen.dart';
 import 'laporan_screen.dart';
@@ -52,6 +53,10 @@ class HariTokoViewState extends State<HariTokoView> {
     });
     try {
       _r = asMap(await Session.db.rpc('rekap_toko', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl}));
+      try {
+        // Activity sosmed & cek limit (tahap1f.sql). Jika belum dijalankan, bagian Activity dikosongkan.
+        _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
+      } catch (_) {}
       widget.onLoaded?.call(_r);
     } catch (e) {
       _error = errMsg(e);
@@ -147,6 +152,7 @@ class HariTokoViewState extends State<HariTokoView> {
           warn: _r['display_terisi'] == true && displayOk < display.length,
           onTap: () => _open(DisplayScreen(toko: t)),
         ),
+        _activityTile(),
         if (me.isPc && t.hariIni && libur == null) ...[
           const SectionHeader('Istirahat'),
           IstirahatCard(
@@ -220,6 +226,22 @@ class HariTokoViewState extends State<HariTokoView> {
         trailing: Icon(ok ? (warn ? Icons.warning_amber : Icons.check_circle) : Icons.radio_button_unchecked, color: c),
         onTap: onTap,
       ),
+    );
+  }
+
+  /// Activity (sosmed & cek limit): tidak wajib untuk kirim laporan.
+  Widget _activityTile() {
+    final a = asMap(_r['activity']);
+    final sosmed = asMap(a['sosmed_hari']).values.fold<num>(0, (x, v) => x + toNum(v));
+    final leasing = asList(a['leasing_hari']);
+    final approve = leasing.where((l) => l['hasil'] == 'Approve').length;
+    final ada = sosmed > 0 || leasing.isNotEmpty;
+    return _tile(
+      icon: Icons.campaign,
+      title: 'Activity (sosmed & cek limit)',
+      status: ada ? 'Sosmed ${angka(sosmed)} · cek limit ${leasing.length} ($approve approve)' : 'Belum ada (opsional)',
+      ok: ada,
+      onTap: () => _open(ActivityScreen(toko: t)),
     );
   }
 

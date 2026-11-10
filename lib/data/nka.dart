@@ -5,6 +5,34 @@ import '../utils.dart';
 const cashViaList = ['Transfer', 'Tunai'];
 const kreditViaList = ['Avanto', 'Kredivo', 'HCI', 'Indodana', 'Kreditplus', 'Akulaku', 'Yesscredit'];
 
+/// Leasing untuk cek limit (sama dengan pilihan Kredit di penjualan).
+const leasingList = kreditViaList;
+
+/// Aktivitas sosmed (sama dengan Daily Report OS).
+class SosmedDef {
+  final String kode;
+  final String platform;
+  final String aktivitas;
+  final String satuan;
+  const SosmedDef(this.kode, this.platform, this.aktivitas, this.satuan);
+  String get label => '$platform - $aktivitas';
+}
+
+const sosmedDefs = [
+  SosmedDef('fb_posting', 'FB Marketplace', 'Posting', 'kali'),
+  SosmedDef('tiktok_konten', 'TikTok', 'Konten diupload', 'konten'),
+  SosmedDef('tiktok_live', 'TikTok', 'Live', 'kali'),
+  SosmedDef('ig_story', 'Instagram', 'Update story', 'kali'),
+  SosmedDef('wa_story', 'WhatsApp', 'Update story', 'kali'),
+];
+
+SosmedDef? sosmedByKode(String? kode) {
+  for (final d in sosmedDefs) {
+    if (d.kode == kode) return d;
+  }
+  return null;
+}
+
 /// Batas waktu laporan malam (WIB). Update stok tidak punya batas jam.
 const jamBatasLaporan = 22;
 
