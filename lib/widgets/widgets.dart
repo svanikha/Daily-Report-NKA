@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 String errMsg(Object e) {
   if (e is PostgrestException) {
     if (e.message.contains('row-level security')) {
-      return 'Tidak diizinkan. PC hanya bisa input hari ini sebelum 22.00 WIB; TL/Trainer hanya untuk toko non PC, PC offday, atau PC yang tidak lapor.';
+      return 'Tidak diizinkan. PC hanya bisa input hari ini sebelum 22.30 WIB; TL/Trainer hanya untuk toko non PC, PC offday, atau PC yang tidak lapor.';
     }
     return e.message;
   }

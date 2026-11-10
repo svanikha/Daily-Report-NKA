@@ -33,7 +33,18 @@ SosmedDef? sosmedByKode(String? kode) {
 }
 
 /// Batas waktu laporan malam (WIB). Update stok tidak punya batas jam.
-const jamBatasLaporan = 22;
+/// Batas laporan malam PC: 22.30 WIB. Pada jam yang sama, PC yang belum kirim laporan
+/// dikirim notifikasi "PC tidak kirim laporan" ke TL, Trainer, PIC.
+const batasLaporanText = '22.30';
+
+/// Waktu batas laporan pada tanggal tertentu (WIB).
+DateTime batasLaporanPada(DateTime tanggal) => DateTime(tanggal.year, tanggal.month, tanggal.day, 22, 30);
+
+/// Sudah lewat 22.30 WIB? [wib] default sekarang.
+bool lewatBatasLaporan([DateTime? wib]) {
+  final w = wib ?? wibNow();
+  return w.hour * 60 + w.minute >= 22 * 60 + 30;
+}
 
 /// Segmen harga MS Allbrand.
 const segmenList = ['lt3', '3to6', 'gt6'];
@@ -149,9 +160,9 @@ class TokoHari {
     final today = wibToday();
     if (tanggal.isAfter(today)) return false;
     if (me.isPic) return true;
-    if (me.isPc) return hariIni && wibNow().hour < jamBatasLaporan;
+    if (me.isPc) return hariIni && !lewatBatasLaporan();
     if (me.isTl || me.isTrainer) {
-      return !punyaPc || libur != null || tanggal.isBefore(today) || wibNow().hour >= jamBatasLaporan;
+      return !punyaPc || libur != null || tanggal.isBefore(today) || lewatBatasLaporan();
     }
     return false;
   }
@@ -166,11 +177,11 @@ class TokoHari {
   /// Alasan tidak bisa mengisi data harian (untuk ditampilkan).
   String get alasanTerkunci {
     final me = Session.current;
-    if (me != null && me.isPc) return 'Input hanya bisa untuk hari ini sampai pukul 22.00 WIB.';
+    if (me != null && me.isPc) return 'Input hanya bisa untuk hari ini sampai pukul 22.30 WIB.';
     if (me != null && me.isTrainer && !bolehIsiHarian) {
-      return 'Trainer/TL hanya melengkapi data toko non PC, PC offday, atau PC yang tidak lapor (setelah 22.00 WIB).';
+      return 'Trainer/TL hanya melengkapi data toko non PC, PC offday, atau PC yang tidak lapor (setelah 22.30 WIB).';
     }
-    return 'TL/Trainer hanya melengkapi data toko non PC, PC offday, atau PC yang tidak lapor (setelah 22.00 WIB).';
+    return 'TL/Trainer hanya melengkapi data toko non PC, PC offday, atau PC yang tidak lapor (setelah 22.30 WIB).';
   }
 }
 

@@ -154,7 +154,7 @@ class _AtasanHomeState extends State<AtasanHome> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return ErrorRetry(error: _error!, onRetry: _load);
     final hariIni = isSameDay(_tanggal, wibToday());
-    final lewatBatas = !hariIni || wibNow().hour >= jamBatasLaporan;
+    final lewatBatas = !hariIni || lewatBatasLaporan();
     final wajib = _toko.where((t) => t['libur'] == null && t['punya_pc'] != false).toList();
     final terkirim = wajib.where((t) => t['laporan_pada'] != null).length;
     final stokOk = wajib.where((t) => t['stok_waktu'] != null).length;

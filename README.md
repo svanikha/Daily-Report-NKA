@@ -19,7 +19,8 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 4. `supabase/tahap1d.sql` → checklist display bisa diatur TL, Trainer, PIC
 5. `supabase/tahap1e.sql` → MS Allbrand cukup angka per segmen (tanpa tipe)
 6. `supabase/tahap1f.sql` → Activity: report sosmed & cek limit leasing
-7. `supabase/tahap1g.sql` → notifikasi "PC tidak kirim laporan" setiap hari pukul 23.00 WIB
+7. `supabase/tahap1g.sql` → notifikasi "PC tidak kirim laporan"
+8. `supabase/tahap1h.sql` → batas laporan PC 22.30 WIB, notifikasi PC tidak kirim laporan juga pukul 22.30
 
 ## Peran
 
@@ -104,7 +105,7 @@ Erafone Rajawali (Palangkaraya) tidak punya PC; penjualannya diinput TL Palangka
 
 ## Aturan penting (dijaga di server)
 
-- PC: stok, kompetitor, dan display hanya untuk hari ini, sampai **22.00 WIB**.
+- PC: stok, kompetitor, dan display hanya untuk hari ini, sampai **22.30 WIB** (laporan malam; notifikasi PC tidak lapor ke atasan pada 22.30).
 - Penjualan boleh untuk tanggal lampau, tidak boleh tanggal yang akan datang. Harga diambil dari master produk.
 - TL/Trainer bisa melengkapi data harian toko non PC, PC offday, atau PC yang tidak lapor.
 - Nomor HP konsumen hanya terlihat oleh PC pemiliknya, TL, Trainer, dan PIC NKA.

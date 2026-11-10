@@ -71,7 +71,7 @@ class HariTokoViewState extends State<HariTokoView> {
 
   Future<void> _kirim() async {
     final ok = await confirmDialog(context, 'Kirim laporan?',
-        'Laporan ${t.toko} ${tglPendek(t.tanggal)} akan ditandai terkirim. Data masih bisa dikoreksi sampai 22.00 WIB.',
+        'Laporan ${t.toko} ${tglPendek(t.tanggal)} akan ditandai terkirim. Data masih bisa dikoreksi sampai 22.30 WIB.',
         yes: 'Kirim');
     if (!ok) return;
     setState(() => _sending = true);
@@ -186,7 +186,7 @@ class HariTokoViewState extends State<HariTokoView> {
   Widget _statusLaporan(Map<String, dynamic>? laporan, List<String> kurang) {
     if (laporan != null) {
       final pada = parseWib('${laporan['dikirim_pada']}');
-      final tepat = isSameDay(pada, t.tanggal) && pada.hour < jamBatasLaporan;
+      final tepat = isSameDay(pada, t.tanggal) && !lewatBatasLaporan(pada);
       return InfoBanner(
         'Laporan terkirim ${jamMenit(pada)} WIB${tepat ? '' : ' (terlambat)'}'
         '${laporan['catatan'] != null ? '\nCatatan: ${laporan['catatan']}' : ''}',
@@ -195,13 +195,13 @@ class HariTokoViewState extends State<HariTokoView> {
       );
     }
     if (t.libur != null) return const SizedBox.shrink();
-    final lewat = !t.hariIni || wibNow().hour >= jamBatasLaporan;
+    final lewat = !t.hariIni || lewatBatasLaporan();
     if (lewat) {
-      return InfoBanner('TIDAK LAPOR: laporan belum dikirim sampai 22.00 WIB.', icon: Icons.error, color: Colors.red.shade700);
+      return InfoBanner('TIDAK LAPOR: laporan belum dikirim sampai 22.30 WIB.', icon: Icons.error, color: Colors.red.shade700);
     }
-    final sisa = DateTime(t.tanggal.year, t.tanggal.month, t.tanggal.day, jamBatasLaporan).difference(wibNow());
+    final sisa = batasLaporanPada(t.tanggal).difference(wibNow());
     return InfoBanner(
-      'Laporan belum dikirim · sisa ${sisa.inHours} jam ${sisa.inMinutes % 60} menit (batas 22.00 WIB)'
+      'Laporan belum dikirim · sisa ${sisa.inHours} jam ${sisa.inMinutes % 60} menit (batas 22.30 WIB)'
       '${kurang.isEmpty ? '\nSemua bagian sudah terisi, tekan Kirim laporan.' : '\nBelum: ${kurang.join(', ')}'}',
       icon: Icons.schedule,
       color: Colors.blueGrey,

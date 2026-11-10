@@ -123,7 +123,7 @@ class _IstirahatCardState extends State<IstirahatCard> {
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _busy || wibNow().hour >= jamBatasLaporan ? null : () => _mulai(60),
+                  onPressed: _busy || lewatBatasLaporan() ? null : () => _mulai(60),
                   icon: busyIcon(false, Icons.camera_front),
                   label: const Text('1 jam'),
                 ),
@@ -131,7 +131,7 @@ class _IstirahatCardState extends State<IstirahatCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _busy || wibNow().hour >= jamBatasLaporan ? null : () => _mulai(120),
+                  onPressed: _busy || lewatBatasLaporan() ? null : () => _mulai(120),
                   icon: const Icon(Icons.camera_front),
                   label: const Text('2 jam'),
                 ),

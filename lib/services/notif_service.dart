@@ -25,7 +25,7 @@ class NotifService {
     android: AndroidNotificationDetails(
       'report',
       'Pengingat laporan malam',
-      channelDescription: 'Pengingat kirim laporan sebelum 22.00 WIB',
+      channelDescription: 'Pengingat kirim laporan sebelum 22.30 WIB',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -140,10 +140,10 @@ class NotifService {
         }
         if (i > 0 || !laporanDone) {
           await _at(2002 + i * 10, 'Waktunya kirim laporan',
-              'Lengkapi penjualan, MS Allbrand, dan display, lalu kirim laporan sebelum 22.00 WIB.',
-              DateTime(d.year, d.month, d.day, 21), _reportDetails);
-          await _at(2003 + i * 10, 'Laporan belum dikirim', '15 menit lagi batas laporan (22.00 WIB).',
-              DateTime(d.year, d.month, d.day, 21, 45), _reportDetails);
+              'Lengkapi penjualan, MS Allbrand, dan display, lalu kirim laporan sebelum 22.30 WIB.',
+              DateTime(d.year, d.month, d.day, 21, 30), _reportDetails);
+          await _at(2003 + i * 10, 'Laporan belum dikirim', '15 menit lagi batas laporan (22.30 WIB).',
+              DateTime(d.year, d.month, d.day, 22, 15), _reportDetails);
         }
       }
       if (breakStart != null) await scheduleBreak(breakStart, durasiMenit: breakMenit);
@@ -152,12 +152,12 @@ class NotifService {
     }
   }
 
-  /// Pengingat istirahat: 10 menit sebelum habis, saat habis, lalu tiap 15 menit sampai 22.00 WIB.
+  /// Pengingat istirahat: 10 menit sebelum habis, saat habis, lalu tiap 15 menit sampai 22.30 WIB.
   static Future<void> scheduleBreak(DateTime mulaiWib, {int durasiMenit = 60}) async {
     try {
       await cancelBreak();
       final label = durasiMenit == 60 ? '1 jam' : '2 jam';
-      final batas = DateTime(mulaiWib.year, mulaiWib.month, mulaiWib.day, 22);
+      final batas = DateTime(mulaiWib.year, mulaiWib.month, mulaiWib.day, 22, 30);
       await _at(_breakBaseId, 'Waktu istirahat hampir habis', '10 menit lagi waktu istirahat $label habis.',
           mulaiWib.add(Duration(minutes: durasiMenit - 10)), _breakDetails);
       var id = _breakBaseId + 1;
