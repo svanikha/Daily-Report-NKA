@@ -17,6 +17,7 @@ const _jenisInfo = {
   'ms_allbrand': (Icons.pie_chart, Color(0xFF6A1B9A), 'MS Allbrand'),
   'display': (Icons.storefront, Color(0xFF00838F), 'Display'),
   'laporan': (Icons.verified, Color(0xFF1B5E20), 'Laporan'),
+  'tidak_lapor': (Icons.report, Color(0xFFC62828), 'Laporan'),
   'istirahat_mulai': (Icons.free_breakfast, Color(0xFFEF6C00), 'Istirahat'),
   'istirahat_selesai': (Icons.storefront, Color(0xFF00897B), 'Istirahat'),
   'istirahat_telat': (Icons.alarm, Color(0xFFC62828), 'Istirahat'),

@@ -19,6 +19,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 4. `supabase/tahap1d.sql` → checklist display bisa diatur TL, Trainer, PIC
 5. `supabase/tahap1e.sql` → MS Allbrand cukup angka per segmen (tanpa tipe)
 6. `supabase/tahap1f.sql` → Activity: report sosmed & cek limit leasing
+7. `supabase/tahap1g.sql` → notifikasi "PC tidak kirim laporan" setiap hari pukul 23.00 WIB
 
 ## Peran
 
