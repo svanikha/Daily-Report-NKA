@@ -16,6 +16,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 1. `supabase/tahap1.sql` → hasil `Tahap 1 siap`
 2. `supabase/tahap1b.sql` → hasil `Tahap 1 revisi siap` (MS Allbrand per segmen harga, kalender penjualan)
 3. `supabase/tahap1c.sql` → hasil `Notifikasi aktivitas siap` (lihat bagian notifikasi di bawah)
+4. `supabase/tahap1d.sql` → checklist display bisa diatur TL, Trainer, PIC
 
 ## Peran
 

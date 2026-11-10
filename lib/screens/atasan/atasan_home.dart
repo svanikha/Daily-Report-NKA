@@ -11,6 +11,7 @@ import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
 import 'aktivitas_screen.dart';
+import 'checklist_screen.dart';
 import 'offday_screen.dart';
 import 'produk_screen.dart';
 import 'target_screen.dart';
@@ -336,6 +337,15 @@ class _AtasanHomeState extends State<AtasanHome> {
           ),
         ),
       ],
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.checklist),
+          title: const Text('Checklist display'),
+          subtitle: const Text('Tambah, ubah, urutkan item cek display PC'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => go(const ChecklistScreen()),
+        ),
+      ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.flag),
