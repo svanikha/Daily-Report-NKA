@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
 import '../../data/nka.dart';
 import '../../services/akun.dart';
@@ -9,6 +10,7 @@ import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
+import 'aktivitas_screen.dart';
 import 'offday_screen.dart';
 import 'produk_screen.dart';
 import 'target_screen.dart';
@@ -28,17 +30,57 @@ class _AtasanHomeState extends State<AtasanHome> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _toko = [];
+  int _unread = 0;
+  RealtimeChannel? _channel;
 
   Profile get me => Session.current!;
 
   @override
   void initState() {
     super.initState();
+    // Push diketuk saat aplikasi di latar belakang / tertutup -> buka Aktivitas
+    PushService.onOpenInbox = () {
+      if (mounted) _bukaAktivitas();
+    };
     PushService.registerAdmin();
     _load();
+    _loadUnread();
+    _channel = Session.db
+        .channel('aktivitas_badge')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'aktivitas',
+          callback: (_) {
+            _loadUnread();
+            if (_tab == 0) _load();
+          },
+        )
+        .subscribe();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) UpdateService.check(context);
     });
+  }
+
+  @override
+  void dispose() {
+    PushService.onOpenInbox = null;
+    final c = _channel;
+    if (c != null) Session.db.removeChannel(c);
+    super.dispose();
+  }
+
+  Future<void> _loadUnread() async {
+    try {
+      final n = toNum(await Session.db.rpc('my_inbox_unread')).toInt();
+      if (mounted) setState(() => _unread = n);
+    } catch (_) {}
+  }
+
+  Future<void> _bukaAktivitas() async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AktivitasScreen()));
+    _loadUnread();
+    _load();
   }
 
   Future<void> _load() async {
@@ -78,6 +120,15 @@ class _AtasanHomeState extends State<AtasanHome> {
           Text('${me.nama} · ${me.roleLabel} · $cakupan', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
         ]),
         actions: [
+          IconButton(
+            onPressed: _bukaAktivitas,
+            tooltip: 'Aktivitas toko',
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text(_unread > 99 ? '99+' : '$_unread'),
+              child: const Icon(Icons.notifications),
+            ),
+          ),
           if (_tab == 0) ...[
             IconButton(onPressed: _pickDate, icon: const Icon(Icons.calendar_month), tooltip: 'Pilih tanggal'),
             IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: 'Muat ulang'),

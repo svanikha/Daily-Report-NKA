@@ -15,6 +15,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 **Update database Tahap 1:** SQL Editor → New query → jalankan berurutan:
 1. `supabase/tahap1.sql` → hasil `Tahap 1 siap`
 2. `supabase/tahap1b.sql` → hasil `Tahap 1 revisi siap` (MS Allbrand per segmen harga, kalender penjualan)
+3. `supabase/tahap1c.sql` → hasil `Notifikasi aktivitas siap` (lihat bagian notifikasi di bawah)
 
 ## Peran
 
@@ -50,13 +51,29 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 4. APK ada di tab **Releases** (`DailyReportNKA-v1.0.x.apk`). Push ke branch `uji` menghasilkan
    APK uji coba di tab **Actions → run → Artifacts**.
 
-### 3. Opsional
-- **Push notification** (peringatan istirahat ke TL/Trainer, Tahap 2): buat project Firebase,
-  tambah aplikasi Android `com.oppobigsampit.daily_report_nka`, isi Variables
-  `FIREBASE_API_KEY`, `FIREBASE_APP_ID`, `FIREBASE_SENDER_ID`, `FIREBASE_PROJECT_ID`.
+### 3. Notifikasi aktivitas ke TL, Trainer, PIC (push, muncul walau aplikasi ditutup)
+Setiap aktivitas toko (penjualan, hapus penjualan, NOSELL, update stok, MS Allbrand, cek display,
+kirim laporan, istirahat mulai / kembali / belum kembali) masuk ke menu **Aktivitas** (ikon lonceng)
+dan dikirim sebagai push ke HP TL & Trainer area toko itu serta PIC NKA.
+
+1. **Database:** Database → Extensions → aktifkan **pg_net** dan **pg_cron**. Lalu SQL Editor → jalankan
+   `supabase/tahap1c.sql` → hasil `Notifikasi aktivitas siap`.
+2. **Firebase:** console.firebase.google.com → Add project (misal `daily-report-nka`, Analytics boleh dimatikan).
+   - Project settings → General → **Add app → Android**, package `com.oppobigsampit.daily_report_nka` → Register
+     (file google-services.json tidak perlu diunduh).
+   - Dari Project settings → General → Your apps, salin ke GitHub → Settings → Secrets and variables →
+     Actions → tab **Variables**: `FIREBASE_API_KEY` (Web API Key / current_key), `FIREBASE_APP_ID`
+     (App ID `1:...:android:...`), `FIREBASE_SENDER_ID` (Project number / Sender ID), `FIREBASE_PROJECT_ID`.
+   - Project settings → **Service accounts → Generate new private key** (file JSON, simpan rahasia).
+3. **Edge function:** Supabase → Edge Functions → Deploy a new function → Via editor → nama **`kirim-notif`**
+   → tempel isi `supabase/functions/kirim-notif/index.ts` → Deploy. Di pengaturan function matikan
+   **Verify JWT**. Lalu Edge Functions → **Secrets** → tambah `FCM_SERVICE_ACCOUNT` = seluruh isi file JSON tadi.
+4. Build ulang APK (push ke GitHub), install, lalu **TL, Trainer, dan PIC login ulang** dan izinkan notifikasi
+   supaya HP mereka terdaftar untuk menerima push.
+
+### 4. Opsional
 - **Versi web** (TL, Trainer, PIC di laptop): isi Variable `FIREBASE_HOSTING_PROJECT` dan Secret
   `FIREBASE_HOSTING_SA` (JSON service account Firebase).
-- Edge function `supabase/functions/cek-istirahat` masih versi Daily Report OS dan akan disesuaikan di Tahap 2.
 
 ## Akun
 

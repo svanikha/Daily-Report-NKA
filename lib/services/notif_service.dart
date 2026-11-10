@@ -41,11 +41,12 @@ class NotifService {
     ),
   );
 
-  static const _adminDetails = NotificationDetails(
+  /// Channel push aktivitas toko (sama dengan channel_id yang dikirim edge function kirim-notif).
+  static const _aktivitasDetails = NotificationDetails(
     android: AndroidNotificationDetails(
-      'admin_alert',
-      'Peringatan TL & Trainer',
-      channelDescription: 'Peringatan dari server (misal PC belum kembali dari istirahat)',
+      'aktivitas',
+      'Aktivitas toko',
+      channelDescription: 'Penjualan, stok, MS Allbrand, display, laporan, dan istirahat PC',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -63,10 +64,12 @@ class NotifService {
       );
       await _plugin.initialize(settings: settings);
       final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      // Channel untuk push dari server (Firebase): tampil sebagai notifikasi penting
+      // walau aplikasi sedang ditutup.
       await android?.createNotificationChannel(const AndroidNotificationChannel(
-        'admin_alert',
-        'Peringatan TL & Trainer',
-        description: 'Peringatan dari server (misal PC belum kembali dari istirahat)',
+        'aktivitas',
+        'Aktivitas toko',
+        description: 'Penjualan, stok, MS Allbrand, display, laporan, dan istirahat PC',
         importance: Importance.high,
       ));
     } catch (e) {
@@ -95,7 +98,7 @@ class NotifService {
         id: DateTime.now().millisecondsSinceEpoch ~/ 1000 % 100000,
         title: title,
         body: body,
-        notificationDetails: _adminDetails,
+        notificationDetails: _aktivitasDetails,
       );
     } catch (_) {}
   }

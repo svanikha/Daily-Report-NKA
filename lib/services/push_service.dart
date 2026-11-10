@@ -6,8 +6,9 @@ import '../config.dart';
 import 'notif_service.dart';
 import 'session.dart';
 
-/// Push notification dari server (Firebase) - hanya untuk HP admin:
-/// peringatan PC yang istirahat lebih dari 3 jam.
+/// Push notification dari server (Firebase) untuk HP TL, Trainer, dan PIC NKA:
+/// semua aktivitas toko (penjualan, stok, MS Allbrand, display, laporan, istirahat).
+/// Tetap muncul walau aplikasi ditutup.
 class PushService {
   static bool _ready = false;
 
