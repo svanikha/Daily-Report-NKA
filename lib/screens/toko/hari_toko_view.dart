@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import '../../data/nka.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
 import '../pc/istirahat_card.dart';
 import 'display_screen.dart';
-import 'kompetitor_screen.dart';
+import 'ms_allbrand_screen.dart';
 import 'laporan_screen.dart';
 import 'penjualan_screen.dart';
 import 'stok_screen.dart';
@@ -94,6 +95,7 @@ class HariTokoViewState extends State<HariTokoView> {
     final displayOk = display.where((d) => d['ok'] == true).length;
     final penjualan = asList(_r['penjualan']);
     final libur = _r['libur'] as String?;
+    final hk = HariKerja.dari(t.tanggal, offdaySisa: toNum(_r['offday_sisa']).toInt());
 
     return RefreshIndicator(
       onRefresh: load,
@@ -106,15 +108,14 @@ class HariTokoViewState extends State<HariTokoView> {
             color: Colors.teal,
           ),
         _statusLaporan(laporan, kurang),
+        TimegoneBar(hk: hk),
+        SellOutCard(hari: hari, bulan: bulan, target: target, hk: hk),
         const SectionHeader('Laporan harian'),
         _tile(
           icon: Icons.inventory_2,
-          title: 'Stok pagi',
-          status: stokWaktu == null
-              ? 'Belum diisi (batas 11.00)'
-              : 'Diisi ${jamMenit(stokWaktu)}${stokTerlambat(stokWaktu) ? ' · TERLAMBAT' : ''}',
+          title: 'Update stok',
+          status: stokWaktu == null ? 'Belum diisi' : 'Diisi ${jamMenit(stokWaktu)}',
           ok: stokWaktu != null,
-          warn: stokWaktu != null && stokTerlambat(stokWaktu),
           onTap: () => _open(StokScreen(toko: t)),
         ),
         _tile(
@@ -127,11 +128,14 @@ class HariTokoViewState extends State<HariTokoView> {
           onTap: () => _open(PenjualanScreen(toko: t)),
         ),
         _tile(
-          icon: Icons.groups,
-          title: 'Penjualan kompetitor',
-          status: _r['kompetitor_terisi'] == true ? '${angka(toNum(hari['kompetitor']))} unit kompetitor' : 'Belum diisi',
+          icon: Icons.pie_chart,
+          title: 'MS Allbrand',
+          status: _r['kompetitor_terisi'] == true
+              ? 'Brand lain ${angka(toNum(hari['kompetitor']))} unit · MS OPPO '
+                  '${toNum(hari['unit']) + toNum(hari['kompetitor']) > 0 ? '${(toNum(hari['unit']) / (toNum(hari['unit']) + toNum(hari['kompetitor'])) * 100).toStringAsFixed(0)}%' : '-'}'
+              : 'Belum diisi',
           ok: _r['kompetitor_terisi'] == true,
-          onTap: () => _open(KompetitorScreen(toko: t)),
+          onTap: () => _open(MsAllbrandScreen(toko: t)),
         ),
         _tile(
           icon: Icons.storefront,
@@ -154,21 +158,6 @@ class HariTokoViewState extends State<HariTokoView> {
           const SectionHeader('Istirahat'),
           _istirahatInfo(asMap(_r['istirahat'])),
         ],
-        SectionHeader('Pencapaian ${namaBulan(t.tanggal)}'),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Column(children: [
-              for (final d in targetDefs)
-                ProgressTile(
-                  label: d.label,
-                  actual: toNum(bulan[d.jenis]),
-                  target: toNum(target[d.jenis]),
-                  fmt: d.rupiah ? rupiah : (v) => '${angka(v)} unit',
-                ),
-            ]),
-          ),
-        ),
         const SizedBox(height: 16),
         if (laporan == null && t.bolehIsiHarian)
           FilledButton.icon(

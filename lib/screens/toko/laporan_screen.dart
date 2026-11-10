@@ -121,8 +121,10 @@ class LaporanCard extends StatelessWidget {
     final stokKosong = (r['stok_kosong_fokus'] as List?)?.map((e) => '$e').toList() ?? const <String>[];
     final stokWaktu = r['stok_waktu'] == null ? null : parseWib('${r['stok_waktu']}');
 
-    // Sisa hari kerja setelah tanggal laporan s.d. akhir bulan (tanpa offday)
-    final sisaHari = toNum(r['hari_akhir']).toInt() - tanggal.day - toNum(r['offday_sisa']).toInt();
+    // Sisa hari kerja = hari berjalan s.d. akhir bulan (termasuk hari ini) dikurangi offday PC
+    final hk = HariKerja.dari(tanggal, offdaySisa: toNum(r['offday_sisa']).toInt());
+    final msDetail = asList(r['ms_detail']);
+    final msOppo = asMap(r['ms_oppo']);
 
     final unitHari = toNum(hari['unit']);
     final kompHari = toNum(hari['kompetitor']);
@@ -171,38 +173,36 @@ class LaporanCard extends StatelessWidget {
         ]),
         // PENCAPAIAN BULAN INI
         _section('PENCAPAIAN ${namaBulan(tanggal).toUpperCase()}', [
+          _line('Timegone', hk.timegoneText, color: brandGreen),
+          _line('Sisa hari kerja',
+              '${hk.sisaHariKerja} hari${hk.offdaySisa > 0 ? ' (tanpa ${hk.offdaySisa} offday)' : ''}'),
+          const SizedBox(height: 4),
           for (final d in targetDefs)
             _progress(
               d.label,
               toNum(bulan[d.jenis]),
               toNum(target[d.jenis]),
               d.rupiah ? rupiah : (v) => '${angka(v)} unit',
-              sisaHari,
+              hk,
             ),
-          Text(
-            sisaHari > 0
-                ? 'Target per hari = sisa target dibagi $sisaHari hari kerja tersisa'
-                    '${toNum(r['offday_sisa']) > 0 ? ' (tanpa ${r['offday_sisa']} hari offday)' : ''}'
-                : 'Tidak ada hari kerja tersisa bulan ini',
-            style: const TextStyle(color: _muted, fontSize: 10),
-          ),
+          _line('Value IoT bulan ini', rupiah(toNum(bulan['iot_value'])), small: true),
         ]),
-        // MARKET SHARE & KOMPETITOR
-        _section('MARKET SHARE & KOMPETITOR', [
+        // MS ALLBRAND
+        _section('MS ALLBRAND', [
           if (r['kompetitor_terisi'] != true)
-            const Text('Data kompetitor belum diisi', style: TextStyle(color: _red, fontSize: 12, fontWeight: FontWeight.w600))
+            const Text('MS Allbrand belum diisi', style: TextStyle(color: _red, fontSize: 12, fontWeight: FontWeight.w600))
           else ...[
-            _line('Market share hari ini',
+            _line('MS OPPO hari ini',
                 totalHari > 0 ? '${angka(unitHari)} dari ${angka(totalHari)} unit (${(unitHari / totalHari * 100).toStringAsFixed(0)}%)' : '-'),
-            _line('Market share bulan ini',
+            _line('MS OPPO bulan ini',
                 unitMs + kompBulan > 0 ? '${(unitMs / (unitMs + kompBulan) * 100).toStringAsFixed(0)}%' : '-'),
             const SizedBox(height: 4),
-            Text(
-              kompetitor.isEmpty
-                  ? 'Kompetitor: tidak ada penjualan'
-                  : 'Kompetitor: ${kompetitor.map((k) => '${k['brand']} ${k['unit']}').join(', ')}',
-              style: const TextStyle(color: _ink, fontSize: 12),
-            ),
+            for (final s in segmenList) _segmenLine(s, toNum(msOppo[s]), msDetail),
+            const SizedBox(height: 4),
+            if (kompetitor.isEmpty)
+              const Text('Brand lain: tidak ada penjualan', style: TextStyle(color: _ink, fontSize: 12))
+            else
+              for (final k in kompetitor) ..._brandLines('${k['brand']}', toNum(k['unit']), msDetail),
           ],
         ]),
         // PEMBAYARAN
@@ -216,8 +216,8 @@ class LaporanCard extends StatelessWidget {
         _section('STOK & DISPLAY', [
           _line(
             'Update stok',
-            stokWaktu == null ? 'Belum diisi' : '${jamMenit(stokWaktu)} WIB${stokTerlambat(stokWaktu) ? ' (terlambat)' : ''}',
-            color: stokWaktu == null || stokTerlambat(stokWaktu) ? _red : _green,
+            stokWaktu == null ? 'Belum diisi' : '${jamMenit(stokWaktu)} WIB',
+            color: stokWaktu == null ? _red : _green,
           ),
           if (stokWaktu != null)
             _line('Stok kosong tipe fokus', stokKosong.isEmpty ? 'Tidak ada' : stokKosong.join(', '),
@@ -298,11 +298,36 @@ class LaporanCard extends StatelessWidget {
         ]),
       );
 
-  Widget _progress(String label, num actual, num target, String Function(num) fmt, int sisaHari) {
+  /// Satu segmen harga: OPPO vs brand lain + MS OPPO.
+  Widget _segmenLine(String seg, num oppo, List<Map<String, dynamic>> detail) {
+    final lain = detail.where((d) => d['segmen'] == seg).fold<num>(0, (a, d) => a + toNum(d['unit']));
+    final ms = oppo + lain > 0 ? '${(oppo / (oppo + lain) * 100).toStringAsFixed(0)}%' : '-';
+    return _line('MS ${segmenLabel[seg]}', 'OPPO ${angka(oppo)} · lain ${angka(lain)} · $ms', small: true);
+  }
+
+  /// Satu brand kompetitor dengan rincian per segmen dan tipe.
+  List<Widget> _brandLines(String brand, num total, List<Map<String, dynamic>> detail) {
+    final rows = detail.where((d) => d['brand'] == brand).toList();
+    return [
+      _line(brand, '${angka(total)} unit'),
+      for (final s in segmenList)
+        if (rows.any((d) => d['segmen'] == s))
+          Padding(
+            padding: const EdgeInsets.only(left: 10, bottom: 1),
+            child: Text(
+              '${segmenLabel[s]}: ${rows.where((d) => d['segmen'] == s).fold<num>(0, (a, d) => a + toNum(d['unit']))} '
+              '(${rows.where((d) => d['segmen'] == s).map((d) => '${d['tipe']} ${d['unit']} unit').join(', ')})',
+              style: const TextStyle(color: _muted, fontSize: 10.5),
+            ),
+          ),
+    ];
+  }
+
+  Widget _progress(String label, num actual, num target, String Function(num) fmt, HariKerja hk) {
     final p = target > 0 ? actual / target * 100 : 0.0;
-    final c = target > 0 ? pctColor(p.toDouble()) : Colors.grey;
+    final c = target > 0 ? (p >= hk.timegone ? _green : _red) : Colors.grey;
     final sisa = target - actual;
-    final perHari = sisa > 0 && sisaHari > 0 ? sisa / sisaHari : 0;
+    final perHari = hk.perHari(target, actual);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

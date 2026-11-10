@@ -6,6 +6,8 @@ import '../../services/push_service.dart';
 import '../../services/session.dart';
 import '../../services/update_service.dart';
 import '../../utils.dart';
+import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
 import 'offday_screen.dart';
 import 'produk_screen.dart';
@@ -112,19 +114,31 @@ class _AtasanHomeState extends State<AtasanHome> {
     final valueBulan = _toko.fold<num>(0, (a, t) => a + toNum(t['value_bulan']));
     final targetValue = _toko.fold<num>(0, (a, t) => a + toNum(t['target_value']));
 
+    final hk = HariKerja.dari(_tanggal);
+
     final out = <Widget>[
+      TimegoneBar(hk: hk, tampilSisa: false),
+      KalenderPenjualan(
+        key: ValueKey('kal-${_toko.length}'),
+        selected: _tanggal,
+        toko: _toko,
+        onSelect: (d) {
+          setState(() => _tanggal = d);
+          _load();
+        },
+      ),
       Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(hariTgl(_tanggal), style: const TextStyle(fontWeight: FontWeight.bold)),
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: Text('Laporan ${hariTgl(_tanggal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       StatGrid(children: [
         StatCard(label: 'Laporan terkirim', value: '$terkirim/${wajib.length}', sub: 'PC wajib lapor', icon: Icons.verified),
-        StatCard(label: 'Stok pagi diisi', value: '$stokOk/${wajib.length}', sub: 'batas 11.00 WIB', icon: Icons.inventory_2),
+        StatCard(label: 'Stok diupdate', value: '$stokOk/${wajib.length}', sub: 'toko wajib lapor', icon: Icons.inventory_2),
         StatCard(label: 'Sell-out HP', value: '${angka(unit)} unit', sub: rupiah(value), icon: Icons.smartphone),
         StatCard(
-          label: 'Market share',
+          label: 'MS Allbrand',
           value: unit + komp > 0 ? '${(unit / (unit + komp) * 100).toStringAsFixed(0)}%' : '-',
-          sub: 'OPPO ${angka(unit)} · kompetitor ${angka(komp)}',
+          sub: 'OPPO ${angka(unit)} · brand lain ${angka(komp)}',
           icon: Icons.pie_chart,
         ),
       ]),
@@ -208,7 +222,6 @@ class _AtasanHomeState extends State<AtasanHome> {
               _chip(
                 stok == null ? 'Stok belum' : 'Stok ${jamMenit(stok)}',
                 stok != null,
-                warn: stok != null && stokTerlambat(stok),
               ),
               _chip(
                 toNum(t['unit']) > 0 || toNum(t['iot']) > 0
@@ -217,7 +230,7 @@ class _AtasanHomeState extends State<AtasanHome> {
                 toNum(t['unit']) > 0 || toNum(t['iot']) > 0 || t['nihil'] == true,
               ),
               _chip(
-                t['kompetitor_terisi'] == true ? 'Kompetitor ${angka(toNum(t['kompetitor_unit']))}' : 'Kompetitor belum',
+                t['kompetitor_terisi'] == true ? 'MS ${angka(toNum(t['kompetitor_unit']))}' : 'MS belum',
                 t['kompetitor_terisi'] == true,
               ),
               _chip(t['display_terisi'] == true ? 'Display ✓' : 'Display belum', t['display_terisi'] == true),

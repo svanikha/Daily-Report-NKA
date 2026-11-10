@@ -15,7 +15,7 @@ class NotifService {
     android: AndroidNotificationDetails(
       'stok',
       'Pengingat stok pagi',
-      channelDescription: 'Pengingat update stok sebelum 11.00 WIB',
+      channelDescription: 'Pengingat update stok harian',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -132,14 +132,12 @@ class NotifService {
         final d = addDays(today, i);
         if (offdays.contains(ymd(d))) continue;
         if (i > 0 || !stokDone) {
-          await _at(2000 + i * 10, 'Update stok pagi', 'Isi stok toko sebelum pukul 11.00 WIB.',
+          await _at(2000 + i * 10, 'Update stok hari ini', 'Jangan lupa update stok toko hari ini.',
               DateTime(d.year, d.month, d.day, 10), _stokDetails);
-          await _at(2001 + i * 10, 'Stok belum diisi', '15 menit lagi batas update stok (11.00 WIB).',
-              DateTime(d.year, d.month, d.day, 10, 45), _stokDetails);
         }
         if (i > 0 || !laporanDone) {
           await _at(2002 + i * 10, 'Waktunya kirim laporan',
-              'Lengkapi penjualan, kompetitor, dan display, lalu kirim laporan sebelum 22.00 WIB.',
+              'Lengkapi penjualan, MS Allbrand, dan display, lalu kirim laporan sebelum 22.00 WIB.',
               DateTime(d.year, d.month, d.day, 21), _reportDetails);
           await _at(2003 + i * 10, 'Laporan belum dikirim', '15 menit lagi batas laporan (22.00 WIB).',
               DateTime(d.year, d.month, d.day, 21, 45), _reportDetails);

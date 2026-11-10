@@ -12,8 +12,9 @@ Status: **Tahap 1** (uji coba). PC: stok pagi, penjualan, kompetitor, cek displa
 selfie, kirim laporan & gambar laporan. TL/Trainer/PIC: status laporan semua toko, detail toko,
 input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 
-**Update database Tahap 1:** SQL Editor → New query → tempel isi `supabase/tahap1.sql` → Run
-(setelah `schema.sql`). Hasil terakhir: `Tahap 1 siap`.
+**Update database Tahap 1:** SQL Editor → New query → jalankan berurutan:
+1. `supabase/tahap1.sql` → hasil `Tahap 1 siap`
+2. `supabase/tahap1b.sql` → hasil `Tahap 1 revisi siap` (MS Allbrand per segmen harga, kalender penjualan)
 
 ## Peran
 

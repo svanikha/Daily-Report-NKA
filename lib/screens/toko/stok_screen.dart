@@ -139,7 +139,7 @@ class _StokScreenState extends State<StokScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Stok pagi'),
+          const Text('Update stok'),
           Text('${t.toko} · ${tglPendek(t.tanggal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
         ]),
       ),
@@ -164,16 +164,15 @@ class _StokScreenState extends State<StokScreen> {
                   if (!boleh) InfoBanner(t.alasanTerkunci, icon: Icons.lock_outline),
                   if (_waktuInput != null)
                     InfoBanner(
-                      'Stok sudah diisi pukul ${jamMenit(_waktuInput!)} WIB'
-                      '${stokTerlambat(_waktuInput!) ? ' (TERLAMBAT, batas 11.00)' : ''}. Koreksi tidak mengubah jam input pertama.',
-                      icon: stokTerlambat(_waktuInput!) ? Icons.warning_amber : Icons.check_circle,
-                      color: stokTerlambat(_waktuInput!) ? Colors.orange.shade800 : Colors.green.shade700,
+                      'Stok sudah diisi pukul ${jamMenit(_waktuInput!)} WIB. Bisa diupdate lagi kapan saja hari ini.',
+                      icon: Icons.check_circle,
+                      color: Colors.green.shade700,
                     )
                   else
                     InfoBanner(
                       _sumberAwal == null
-                          ? 'Isi jumlah stok setiap produk. Batas update stok pukul 11.00 WIB.'
-                          : 'Angka awal = stok ${tgl(parseDate(_sumberAwal!))}. Ubah yang berbeda saja. Batas pukul 11.00 WIB.',
+                          ? 'Isi jumlah stok setiap produk.'
+                          : 'Angka awal = stok ${tgl(parseDate(_sumberAwal!))}. Ubah yang berbeda saja.',
                     ),
                   if (kosongFokus.isNotEmpty)
                     InfoBanner('Stok kosong tipe fokus: ${kosongFokus.join(', ')}',

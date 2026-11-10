@@ -5,9 +5,39 @@ import '../utils.dart';
 const cashViaList = ['Transfer', 'Tunai'];
 const kreditViaList = ['Avanto', 'Kredivo', 'HCI', 'Indodana', 'Kreditplus', 'Akulaku', 'Yesscredit'];
 
-/// Batas waktu (WIB).
-const jamBatasStok = 11; // stok pagi
-const jamBatasLaporan = 22; // laporan malam
+/// Batas waktu laporan malam (WIB). Update stok tidak punya batas jam.
+const jamBatasLaporan = 22;
+
+/// Segmen harga MS Allbrand.
+const segmenList = ['lt3', '3to6', 'gt6'];
+const segmenLabel = {'lt3': '< 3 jt', '3to6': '3 jt - 6 jt', 'gt6': '6 jt up'};
+
+/// Hari kerja & timegone dalam satu bulan.
+/// timegone = tanggal hari ini / jumlah hari di bulan itu (10/30 = 33%).
+/// sisa hari kerja = hari berjalan s.d. akhir bulan (termasuk hari ini) dikurangi offday PC.
+class HariKerja {
+  final int hariKe;
+  final int totalHari;
+  final int sisaHariKerja;
+  final int offdaySisa;
+  const HariKerja({required this.hariKe, required this.totalHari, required this.sisaHariKerja, required this.offdaySisa});
+
+  factory HariKerja.dari(DateTime tanggal, {int offdaySisa = 0}) {
+    final total = monthEnd(tanggal).day;
+    final sisa = total - tanggal.day + 1 - offdaySisa;
+    return HariKerja(hariKe: tanggal.day, totalHari: total, sisaHariKerja: sisa < 0 ? 0 : sisa, offdaySisa: offdaySisa);
+  }
+
+  double get timegone => hariKe / totalHari * 100;
+  String get timegoneText => '$hariKe/$totalHari = ${timegone.toStringAsFixed(0)}%';
+
+  /// Kekurangan dibagi sisa hari kerja (0 jika sudah tercapai atau tidak ada hari kerja).
+  num perHari(num target, num capai) {
+    final kurang = target - capai;
+    if (kurang <= 0 || sisaHariKerja <= 0) return 0;
+    return kurang / sisaHariKerja;
+  }
+}
 
 /// Jenis target bulanan per toko.
 class TargetDef {
@@ -118,6 +148,3 @@ class TokoHari {
 }
 
 String jamMenit(DateTime d) => '${d.hour.toString().padLeft(2, '0')}.${d.minute.toString().padLeft(2, '0')}';
-
-/// Waktu input stok pertama melewati batas 11.00 WIB?
-bool stokTerlambat(DateTime wib) => wib.hour >= jamBatasStok;
