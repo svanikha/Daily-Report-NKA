@@ -136,6 +136,7 @@ class PhotoService {
     required String label,
     PhotoKind kind = PhotoKind.foto,
     bool cameraOnly = false,
+    String? toko,
   }) async {
     final pc = Session.current;
     ImageSource? source = cameraOnly ? ImageSource.camera : null;
@@ -221,7 +222,7 @@ class PhotoService {
       }
       if (loc == null) {
         flags.add('lokasi_tidak_tersedia');
-      } else if (loc.jarakToko != null && loc.jarakToko! > (pc?.radiusM ?? 100)) {
+      } else if (loc.jarakToko != null && loc.jarakToko! > LocationService.radiusTerdekat(loc.lat, loc.lng)) {
         flags.add('di_luar_toko');
       }
     }
@@ -233,7 +234,7 @@ class PhotoService {
     // 4. Watermark
     final lines = <String>[
       '${DateFormat('dd/MM/yyyy HH:mm').format(waktuAmbil)} WIB${label.isNotEmpty ? ' - $label' : ''}',
-      if (pc != null) '${pc.nama} - ${pc.toko.replaceFirst('OPPO Store - ', '')}',
+      if (pc != null) '${pc.nama} - ${toko ?? (pc.toko.isNotEmpty ? pc.toko : pc.roleLabel)}',
       if (kind == PhotoKind.foto)
         loc == null
             ? 'Lokasi tidak tersedia'
@@ -253,9 +254,9 @@ class PhotoService {
     );
   }
 
-  /// Upload ke storage, mengembalikan path file.
-  static Future<String> upload(String pcId, Uint8List bytes) async {
-    final path = '$pcId/${todayStr()}/${DateTime.now().microsecondsSinceEpoch}.jpg';
+  /// Upload ke storage (folder = id toko), mengembalikan path file.
+  static Future<String> upload(int storeId, String folder, Uint8List bytes) async {
+    final path = '$storeId/$folder/${todayStr()}/${DateTime.now().microsecondsSinceEpoch}.jpg';
     await Session.db.storage.from(bucket).uploadBinary(
           path,
           bytes,
@@ -266,16 +267,19 @@ class PhotoService {
 
   /// Upload semua foto lalu catat di tabel photos.
   static Future<void> saveAll({
-    required String pcId,
+    required int storeId,
+    String? pcId,
     required String refTabel,
     required String refId,
     required List<PickedPhoto> photos,
   }) async {
     final rows = <Map<String, dynamic>>[];
     for (final p in photos) {
-      final path = await upload(pcId, p.bytes);
+      final path = await upload(storeId, refTabel, p.bytes);
       rows.add({
+        'store_id': storeId,
         'pc_id': pcId,
+        'created_by': Session.current?.id,
         'ref_tabel': refTabel,
         'ref_id': refId,
         'path': path,

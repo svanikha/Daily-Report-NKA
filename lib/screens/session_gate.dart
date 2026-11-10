@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import '../config.dart';
 import '../services/session.dart';
 import '../widgets/widgets.dart';
-import 'home_tahap0.dart';
+import 'atasan/atasan_home.dart';
 import 'login_screen.dart';
+import 'pc/pc_home.dart';
 
-// Tahap 0: semua peran masuk ke beranda sementara. Layar Daily Report OS di folder
-// screens/admin dan screens/pc disimpan sebagai bahan Tahap 1 dan belum dipakai.
 Widget homeFor(Profile p) {
+  if (p.usesAdminHome) return const AtasanHome();
   // Versi web hanya untuk TL, Trainer, dan PIC NKA: PC memakai aplikasi HP.
-  if (kIsWeb && p.isPc) return const WebPcBlocked();
-  return HomeTahap0(profile: p);
+  if (kIsWeb) return const WebPcBlocked();
+  return PcHome(pc: p);
 }
 
 class WebPcBlocked extends StatelessWidget {

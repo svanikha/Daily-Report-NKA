@@ -44,11 +44,23 @@ class LocationService {
     return LocationResult(pos.latitude, pos.longitude, pos.accuracy, jarakKeToko(pos.latitude, pos.longitude));
   }
 
-  static int? jarakKeToko(double lat, double lng) {
+  /// Jarak ke titik toko terdekat (Erafone Pangkalanbun punya 2 titik).
+  static int? jarakKeToko(double lat, double lng) => titikTerdekat(lat, lng)?.$1;
+
+  /// (jarak meter, titik) ke titik toko PC yang paling dekat.
+  static (int, StoreLocation)? titikTerdekat(double lat, double lng) {
     final p = Session.current;
-    if (p == null || !p.hasStoreLocation) return null;
-    return Geolocator.distanceBetween(lat, lng, p.storeLat!, p.storeLng!).round();
+    if (p == null || p.lokasi.isEmpty) return null;
+    (int, StoreLocation)? best;
+    for (final l in p.lokasi) {
+      final d = Geolocator.distanceBetween(lat, lng, l.lat, l.lng).round();
+      if (best == null || d < best.$1) best = (d, l);
+    }
+    return best;
   }
+
+  /// Radius titik toko terdekat (default 100 m).
+  static int radiusTerdekat(double lat, double lng) => titikTerdekat(lat, lng)?.$2.radiusM ?? 100;
 
   static Future<void> openSettings() => Geolocator.openLocationSettings();
 }

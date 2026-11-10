@@ -15,6 +15,7 @@ class PhotoPickerField extends StatelessWidget {
   final String photoLabel;
   final PhotoKind kind;
   final bool cameraOnly;
+  final String? toko;
 
   const PhotoPickerField({
     super.key,
@@ -26,11 +27,12 @@ class PhotoPickerField extends StatelessWidget {
     this.selfie = false,
     this.kind = PhotoKind.foto,
     this.cameraOnly = false,
+    this.toko,
   });
 
   Future<void> _add(BuildContext context) async {
     try {
-      final p = await PhotoService.pick(context, selfie: selfie, label: photoLabel, kind: kind, cameraOnly: cameraOnly);
+      final p = await PhotoService.pick(context, selfie: selfie, label: photoLabel, kind: kind, cameraOnly: cameraOnly, toko: toko);
       if (p != null) onChanged([...photos, p]);
     } on PhotoRejected catch (e) {
       if (context.mounted) await showRejected(context, e.message);

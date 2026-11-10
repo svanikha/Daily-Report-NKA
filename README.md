@@ -8,8 +8,12 @@ dengan project Supabase dan repo terpisah.
 - **Server:** Supabase (database, login, penyimpanan foto)
 - **Rencana lengkap:** `Rencana-Teknis-Daily-Report-NKA.md` (di folder induk)
 
-Status: **Tahap 0**. Login semua peran sudah jalan dan menampilkan beranda sementara
-(nama, peran, toko/area, titik GPS). Menu laporan dibuat di Tahap 1.
+Status: **Tahap 1** (uji coba). PC: stok pagi, penjualan, kompetitor, cek display, istirahat dengan
+selfie, kirim laporan & gambar laporan. TL/Trainer/PIC: status laporan semua toko, detail toko,
+input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
+
+**Update database Tahap 1:** SQL Editor → New query → tempel isi `supabase/tahap1.sql` → Run
+(setelah `schema.sql`). Hasil terakhir: `Tahap 1 siap`.
 
 ## Peran
 

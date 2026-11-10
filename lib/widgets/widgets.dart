@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
-
-import '../screens/pc/daily_report_screen.dart';
-import '../services/session.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 String errMsg(Object e) {
   if (e is PostgrestException) {
     if (e.message.contains('row-level security')) {
-      return 'Tidak diizinkan. Input hanya bisa untuk hari ini sebelum pukul 23.00 WIB.';
+      return 'Tidak diizinkan. PC hanya bisa input hari ini sebelum 22.00 WIB; TL/Trainer hanya untuk toko non PC, PC offday, atau PC yang tidak lapor.';
     }
     return e.message;
   }
@@ -271,34 +268,3 @@ Widget busyIcon(bool busy, IconData icon) => busy
     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
     : Icon(icon);
 
-/// AppBar untuk layar PC. Saat dibuka admin, judul memuat nama PC dan ada tombol kembali.
-PreferredSizeWidget pcAppBar(
-  BuildContext context,
-  String title,
-  Profile pc,
-  bool adminView, {
-  VoidCallback? onRefresh,
-  PreferredSizeWidget? bottom,
-}) {
-  return AppBar(
-    automaticallyImplyLeading: false,
-    leading: adminView ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)) : null,
-    title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title),
-      Text('${pc.nama} · ${pc.toko}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
-    ]),
-    actions: [
-      if (!adminView)
-        IconButton(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DailyReportScreen(pc: pc))),
-          icon: const Icon(Icons.ios_share),
-          tooltip: 'Kirim laporan harian',
-        ),
-      if (onRefresh != null) IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh), tooltip: 'Muat ulang'),
-    ],
-    bottom: bottom,
-  );
-}
-
-/// Admin utama boleh mengubah/menghapus data PC. Admin support hanya melihat.
-bool adminCanEdit(bool adminView) => adminView && (Session.current?.isAdmin ?? false);

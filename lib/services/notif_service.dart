@@ -5,32 +5,27 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../utils.dart';
 
-/// Notifikasi lokal: pengingat follow up konsumen, alarm report 22.00 WIB,
-/// dan pengingat waktu istirahat.
+/// Notifikasi lokal PC: pengingat stok pagi (10.00 & 10.45), laporan malam
+/// (21.00 & 21.45), dan waktu istirahat. Tidak dikirim di hari offday/izin.
 class NotifService {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static tz.Location? _jkt;
-  static String? _pending;
-  static void Function(String? payload)? onTapListener;
 
-  /// Jam kirim pengingat follow up (ditentukan sistem, tidak diatur PC).
-  static const followUpHour = 9;
-
-  static const _followDetails = NotificationDetails(
+  static const _stokDetails = NotificationDetails(
     android: AndroidNotificationDetails(
-      'followup',
-      'Follow up konsumen',
-      channelDescription: 'Pengingat follow up H+1, H+3, H+7, H+30',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
+      'stok',
+      'Pengingat stok pagi',
+      channelDescription: 'Pengingat update stok sebelum 11.00 WIB',
+      importance: Importance.high,
+      priority: Priority.high,
     ),
   );
 
   static const _reportDetails = NotificationDetails(
     android: AndroidNotificationDetails(
       'report',
-      'Pengingat report harian',
-      channelDescription: 'Alarm pukul 22.00 WIB jika report belum diisi',
+      'Pengingat laporan malam',
+      channelDescription: 'Pengingat kirim laporan sebelum 22.00 WIB',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -40,7 +35,7 @@ class NotifService {
     android: AndroidNotificationDetails(
       'istirahat',
       'Waktu istirahat',
-      channelDescription: 'Pengingat agar segera klik Kembali ke Toko',
+      channelDescription: 'Pengingat agar segera kembali ke toko dan selfie',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -49,8 +44,8 @@ class NotifService {
   static const _adminDetails = NotificationDetails(
     android: AndroidNotificationDetails(
       'admin_alert',
-      'Peringatan RBM',
-      channelDescription: 'Peringatan istirahat PC lebih dari 3 jam',
+      'Peringatan TL & Trainer',
+      channelDescription: 'Peringatan dari server (misal PC belum kembali dari istirahat)',
       importance: Importance.high,
       priority: Priority.high,
     ),
@@ -66,46 +61,17 @@ class NotifService {
       const settings = InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       );
-      await _plugin.initialize(
-        settings: settings,
-        onDidReceiveNotificationResponse: (r) => _handle(r.payload),
-      );
-      // Channel untuk push dari server (Firebase) agar tampil sebagai notifikasi penting.
+      await _plugin.initialize(settings: settings);
       final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       await android?.createNotificationChannel(const AndroidNotificationChannel(
         'admin_alert',
-        'Peringatan RBM',
-        description: 'Peringatan istirahat PC lebih dari 3 jam',
+        'Peringatan TL & Trainer',
+        description: 'Peringatan dari server (misal PC belum kembali dari istirahat)',
         importance: Importance.high,
       ));
-      await android?.createNotificationChannel(const AndroidNotificationChannel(
-        'pesan_masuk',
-        'Pesan masuk',
-        description: 'Laporan penjualan, istirahat, dan cek limit leasing dari PC',
-        importance: Importance.high,
-      ));
-      final launch = await _plugin.getNotificationAppLaunchDetails();
-      if (launch?.didNotificationLaunchApp ?? false) {
-        _pending = launch?.notificationResponse?.payload;
-      }
     } catch (e) {
       debugPrint('Notifikasi gagal disiapkan: $e');
     }
-  }
-
-  static void _handle(String? payload) {
-    final l = onTapListener;
-    if (l != null) {
-      l(payload);
-    } else {
-      _pending = payload;
-    }
-  }
-
-  static String? takePending() {
-    final p = _pending;
-    _pending = null;
-    return p;
   }
 
   static Future<void> requestPermission() async {
@@ -122,7 +88,7 @@ class NotifService {
     } catch (_) {}
   }
 
-  /// Menampilkan notifikasi saat ini juga (dipakai untuk push saat aplikasi admin terbuka).
+  /// Menampilkan notifikasi saat ini juga (push dari server saat aplikasi terbuka).
   static Future<void> showNow(String title, String body) async {
     try {
       await _plugin.show(
@@ -134,7 +100,7 @@ class NotifService {
     } catch (_) {}
   }
 
-  static Future<void> _at(int id, String title, String body, DateTime wib, NotificationDetails details, String payload) async {
+  static Future<void> _at(int id, String title, String body, DateTime wib, NotificationDetails details) async {
     final loc = _jkt;
     if (loc == null) return;
     final when = tz.TZDateTime(loc, wib.year, wib.month, wib.day, wib.hour, wib.minute);
@@ -146,107 +112,58 @@ class NotifService {
       scheduledDate: when,
       notificationDetails: details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      payload: payload,
     );
   }
 
-  /// Hari kerja berikutnya (melewati offday/izin), mulai dari [d].
-  static DateTime _workDay(DateTime d, Set<String> offdays) {
-    var x = d;
-    for (var i = 0; i < 14 && offdays.contains(ymd(x)); i++) {
-      x = addDays(x, 1);
-    }
-    return x;
-  }
-
-  /// Menjadwalkan ulang semua notifikasi PC.
-  /// [contacts] berisi id, nama, kategori, created_at, last_contacted_at.
-  /// [offdays] berisi tanggal (yyyy-MM-dd) offday/izin PC.
-  /// [breakStart] waktu mulai istirahat (WIB) jika sedang istirahat.
+  /// Menjadwalkan ulang semua pengingat PC untuk 7 hari ke depan.
+  /// [offdays] tanggal (yyyy-MM-dd) offday/izin. [breakStart] diisi jika sedang istirahat.
   static Future<void> reschedule({
-    required List<Map<String, dynamic>> contacts,
-    required bool todayDone,
-    Set<String> offdays = const {},
+    required Set<String> offdays,
+    required bool stokDone,
+    required bool laporanDone,
     DateTime? breakStart,
-    int breakMenit = 180,
+    int breakMenit = 60,
   }) async {
     if (_jkt == null) return;
     try {
       await _plugin.cancelAll();
       final today = wibToday();
-
-      // Pengingat follow up: notifikasi teks biasa. Yang jatuh di offday dipindah ke hari kerja berikutnya.
-      final byDay = <DateTime, List<MapEntry<Map<String, dynamic>, int>>>{};
-      for (final c in contacts) {
-        for (final r in remindersOf(c)) {
-          if (r.done || r.due.isBefore(today)) continue;
-          if (r.due.difference(today).inDays > 40) continue;
-          final day = _workDay(r.due, offdays);
-          byDay.putIfAbsent(day, () => []).add(MapEntry(c, r.h));
-        }
-      }
-      final days = byDay.keys.toList()..sort();
-      var id = 1000;
-      for (final d in days) {
-        final list = byDay[d]!;
-        if (list.length == 1) {
-          final c = list.first.key;
-          await _at(
-            id++,
-            'Follow up H+${list.first.value}: ${c['nama']}',
-            '${c['nama']} (${c['kategori'] ?? '-'}). Ketuk untuk menghubungi.',
-            DateTime(d.year, d.month, d.day, followUpHour),
-            _followDetails,
-            'contact:${c['id']}',
-          );
-        } else {
-          final names = list.take(3).map((e) => '${e.key['nama']} (H+${e.value})').join(', ');
-          final more = list.length > 3 ? ' dan ${list.length - 3} lainnya' : '';
-          await _at(
-            id++,
-            'Follow up hari ini: ${list.length} konsumen',
-            '$names$more. Ketuk untuk menghubungi.',
-            DateTime(d.year, d.month, d.day, followUpHour),
-            _followDetails,
-            'followup',
-          );
-        }
-      }
-
-      // Alarm report pukul 22.00 WIB (1 jam sebelum batas input 23.00), kecuali hari offday.
       for (var i = 0; i < 7; i++) {
         final d = addDays(today, i);
         if (offdays.contains(ymd(d))) continue;
-        await _at(
-          2000 + i,
-          'Waktunya kirim laporan harian',
-          'Lengkapi Report, Activity, dan Checklist (batas 23.00 WIB), lalu kirim gambar laporan ke grup.',
-          DateTime(d.year, d.month, d.day, 22),
-          _reportDetails,
-          'laporan',
-        );
+        if (i > 0 || !stokDone) {
+          await _at(2000 + i * 10, 'Update stok pagi', 'Isi stok toko sebelum pukul 11.00 WIB.',
+              DateTime(d.year, d.month, d.day, 10), _stokDetails);
+          await _at(2001 + i * 10, 'Stok belum diisi', '15 menit lagi batas update stok (11.00 WIB).',
+              DateTime(d.year, d.month, d.day, 10, 45), _stokDetails);
+        }
+        if (i > 0 || !laporanDone) {
+          await _at(2002 + i * 10, 'Waktunya kirim laporan',
+              'Lengkapi penjualan, kompetitor, dan display, lalu kirim laporan sebelum 22.00 WIB.',
+              DateTime(d.year, d.month, d.day, 21), _reportDetails);
+          await _at(2003 + i * 10, 'Laporan belum dikirim', '15 menit lagi batas laporan (22.00 WIB).',
+              DateTime(d.year, d.month, d.day, 21, 45), _reportDetails);
+        }
       }
-
       if (breakStart != null) await scheduleBreak(breakStart, durasiMenit: breakMenit);
     } catch (e) {
       debugPrint('Gagal menjadwalkan notifikasi: $e');
     }
   }
 
-  /// Pengingat istirahat: 15 menit sebelum durasi habis, saat habis,
-  /// lalu tiap 15 menit sampai 23.00 WIB. [durasiMenit] = 60 atau 180.
-  static Future<void> scheduleBreak(DateTime mulaiWib, {int durasiMenit = 180}) async {
+  /// Pengingat istirahat: 10 menit sebelum habis, saat habis, lalu tiap 15 menit sampai 22.00 WIB.
+  static Future<void> scheduleBreak(DateTime mulaiWib, {int durasiMenit = 60}) async {
     try {
       await cancelBreak();
-      final label = durasiMenit == 60 ? '1 jam' : '3 jam';
-      final batas = DateTime(mulaiWib.year, mulaiWib.month, mulaiWib.day, 23);
-      await _at(_breakBaseId, 'Waktu istirahat hampir habis', '15 menit lagi waktu istirahat $label habis.',
-          mulaiWib.add(Duration(minutes: durasiMenit - 15)), _breakDetails, 'istirahat');
+      final label = durasiMenit == 60 ? '1 jam' : '2 jam';
+      final batas = DateTime(mulaiWib.year, mulaiWib.month, mulaiWib.day, 22);
+      await _at(_breakBaseId, 'Waktu istirahat hampir habis', '10 menit lagi waktu istirahat $label habis.',
+          mulaiWib.add(Duration(minutes: durasiMenit - 10)), _breakDetails);
       var id = _breakBaseId + 1;
       for (var m = durasiMenit; id <= _breakMaxId; m += 15) {
         final t = mulaiWib.add(Duration(minutes: m));
         if (t.isAfter(batas)) break;
-        await _at(id++, 'Waktu istirahat $label habis', 'Segera klik Kembali ke Toko.', t, _breakDetails, 'istirahat');
+        await _at(id++, 'Waktu istirahat $label habis', 'Segera kembali ke toko dan selfie.', t, _breakDetails);
       }
     } catch (e) {
       debugPrint('Gagal menjadwalkan pengingat istirahat: $e');
