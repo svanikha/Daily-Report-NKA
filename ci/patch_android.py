@@ -65,6 +65,10 @@ if "com.whatsapp.w4b" not in m:
 manifest.write_text(m)
 print("AndroidManifest.xml diperbarui")
 
+KEYSTORE = str((root.parent / "ci" / "debug.keystore").resolve()).replace("\\", "/")
+if not pathlib.Path(KEYSTORE).exists():
+    sys.exit("ci/debug.keystore tidak ditemukan")
+
 kts = root / "app" / "build.gradle.kts"
 groovy = root / "app" / "build.gradle"
 if kts.exists():
@@ -73,6 +77,18 @@ if kts.exists():
         g = re.sub(r"compileOptions\s*\{", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", g, count=1)
     if "desugar_jdk_libs" not in g:
         g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+    # Tanda tangan APK selalu memakai ci/debug.keystore milik NKA (bukan kunci acak "Android Debug"
+    # buatan Gradle), supaya APK baru bisa di-install di atas versi lama.
+    if 'create("nka")' not in g:
+        def add_kts(m):
+            i = m.group(1)
+            return (f'{i}signingConfigs {{{i}    create("nka") {{{i}        storeFile = file("{KEYSTORE}"){i}'
+                    f'        storePassword = "android"{i}        keyAlias = "androiddebugkey"{i}'
+                    f'        keyPassword = "android"{i}    }}{i}}}{i}buildTypes {{')
+        g = re.sub(r"(\n[ \t]*)buildTypes\s*\{", add_kts, g, count=1)
+        g = g.replace('signingConfigs.getByName("debug")', 'signingConfigs.getByName("nka")')
+    if 'getByName("nka")' not in g:
+        sys.exit("Gagal memasang signing config NKA di build.gradle.kts")
     kts.write_text(g)
     print("build.gradle.kts diperbarui")
 elif groovy.exists():
@@ -81,6 +97,16 @@ elif groovy.exists():
         g = re.sub(r"compileOptions\s*\{", "compileOptions {\n        coreLibraryDesugaringEnabled true", g, count=1)
     if "desugar_jdk_libs" not in g:
         g += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+    if "signingConfigs.nka" not in g:
+        def add_groovy(m):
+            i = m.group(1)
+            return (f"{i}signingConfigs {{{i}    nka {{{i}        storeFile file('{KEYSTORE}'){i}"
+                    f"        storePassword 'android'{i}        keyAlias 'androiddebugkey'{i}"
+                    f"        keyPassword 'android'{i}    }}{i}}}{i}buildTypes {{")
+        g = re.sub(r"(\n[ \t]*)buildTypes\s*\{", add_groovy, g, count=1)
+        g = g.replace("signingConfigs.debug", "signingConfigs.nka")
+    if "signingConfigs.nka" not in g:
+        sys.exit("Gagal memasang signing config NKA di build.gradle")
     groovy.write_text(g)
     print("build.gradle diperbarui")
 else:

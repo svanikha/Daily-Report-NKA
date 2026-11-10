@@ -129,6 +129,15 @@ jobs:
           tail -n 60 build-full.txt >> ci-log.txt
           [ "$ok" = 1 ]
 
+      # APK wajib ditandatangani keystore NKA (CN=Daily Report NKA). Jika tidak, update di HP akan
+      # ditolak ("bentrok dengan paket yang ada"), jadi build dihentikan di sini.
+      - name: Cek tanda tangan APK
+        run: |
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | tee apk-cert.txt
+          cat apk-cert.txt >> ci-log.txt
+          grep -q "CN=Daily Report NKA" apk-cert.txt || { echo "APK TIDAK memakai keystore NKA" | tee -a ci-log.txt; exit 1; }
+
       - name: Simpan log build gagal
         if: failure()
         run: |
