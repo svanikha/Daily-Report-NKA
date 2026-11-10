@@ -21,6 +21,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 6. `supabase/tahap1f.sql` → Activity: report sosmed & cek limit leasing
 7. `supabase/tahap1g.sql` → notifikasi "PC tidak kirim laporan"
 8. `supabase/tahap1h.sql` → batas laporan PC 22.30 WIB, notifikasi PC tidak kirim laporan juga pukul 22.30
+9. `supabase/tahap1i.sql` → nama Alwisius, Trainer di laporan, kalender NOSELL, kontribusi Cash/Kredit, kelola akun PC
 
 ## Peran
 
@@ -93,7 +94,7 @@ PC, TL, dan Trainer cukup memilih nama di layar login. Email di bawah hanya dipa
 | Era Novallisti | PC | Erafone Pelita | era@dailyreportnka.app |
 | Nuriyah | PC | Erafone MT Haryono | nuriyah@dailyreportnka.app |
 | Utin Amelia Putri Dewi | PC | Erafone Pangkalanbun | utin@dailyreportnka.app |
-| Alwisiuts Jati Kurniawan | TL | Palangkaraya | alwisiuts@dailyreportnka.app |
+| Alwisius Jati Kurniawan | TL | Palangkaraya | alwisiuts@dailyreportnka.app |
 | Wiga Bintang Pratama | TL | Sampit | wiga@dailyreportnka.app |
 | Yanah | TL | Pangkalanbun | yanah@dailyreportnka.app |
 | Istihanah | Trainer | Palangkaraya | istihanah@dailyreportnka.app |

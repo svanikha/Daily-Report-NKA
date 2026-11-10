@@ -813,7 +813,7 @@ select v.nama, v.role, s.id, a.id, v.email
     ('Nuriyah', 'pc', 'Erafone MT Haryono', null, 'nuriyah@dailyreportnka.app'),
     ('Utin Amelia Putri Dewi', 'pc', 'Erafone Pangkalanbun', null, 'utin@dailyreportnka.app'),
     -- TL
-    ('Alwisiuts Jati Kurniawan', 'tl', null, 'Palangkaraya', 'alwisiuts@dailyreportnka.app'),
+    ('Alwisius Jati Kurniawan', 'tl', null, 'Palangkaraya', 'alwisiuts@dailyreportnka.app'),
     ('Wiga Bintang Pratama', 'tl', null, 'Sampit', 'wiga@dailyreportnka.app'),
     ('Yanah', 'tl', null, 'Pangkalanbun', 'yanah@dailyreportnka.app'),
     -- Trainer

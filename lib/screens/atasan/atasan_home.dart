@@ -8,8 +8,10 @@ import '../../services/session.dart';
 import '../../services/update_service.dart';
 import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/kontribusi_bayar.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
+import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
 import 'checklist_screen.dart';
 import 'offday_screen.dart';
@@ -32,6 +34,7 @@ class _AtasanHomeState extends State<AtasanHome> {
   String? _error;
   List<Map<String, dynamic>> _toko = [];
   int _unread = 0;
+  int? _filterStore; // null = semua toko di cakupan
   RealtimeChannel? _channel;
 
   Profile get me => Session.current!;
@@ -155,33 +158,54 @@ class _AtasanHomeState extends State<AtasanHome> {
     if (_error != null) return ErrorRetry(error: _error!, onRetry: _load);
     final hariIni = isSameDay(_tanggal, wibToday());
     final lewatBatas = !hariIni || lewatBatasLaporan();
-    final wajib = _toko.where((t) => t['libur'] == null && t['punya_pc'] != false).toList();
+    // Filter toko berlaku untuk semua angka di halaman ini (bukan hanya kalender)
+    final list = _filterStore == null
+        ? _toko
+        : _toko.where((t) => toNum(t['store_id']).toInt() == _filterStore).toList();
+    final wajib = list.where((t) => t['libur'] == null && t['punya_pc'] != false).toList();
     final terkirim = wajib.where((t) => t['laporan_pada'] != null).length;
     final stokOk = wajib.where((t) => t['stok_waktu'] != null).length;
-    final unit = _toko.fold<num>(0, (a, t) => a + toNum(t['unit']));
-    final value = _toko.fold<num>(0, (a, t) => a + toNum(t['value']));
-    final komp = _toko.fold<num>(0, (a, t) => a + toNum(t['kompetitor_unit']));
-    final unitBulan = _toko.fold<num>(0, (a, t) => a + toNum(t['unit_bulan']));
-    final targetUnit = _toko.fold<num>(0, (a, t) => a + toNum(t['target_unit']));
-    final valueBulan = _toko.fold<num>(0, (a, t) => a + toNum(t['value_bulan']));
-    final targetValue = _toko.fold<num>(0, (a, t) => a + toNum(t['target_value']));
+    final unit = list.fold<num>(0, (a, t) => a + toNum(t['unit']));
+    final value = list.fold<num>(0, (a, t) => a + toNum(t['value']));
+    final komp = list.fold<num>(0, (a, t) => a + toNum(t['kompetitor_unit']));
+    final unitBulan = list.fold<num>(0, (a, t) => a + toNum(t['unit_bulan']));
+    final targetUnit = list.fold<num>(0, (a, t) => a + toNum(t['target_unit']));
+    final valueBulan = list.fold<num>(0, (a, t) => a + toNum(t['value_bulan']));
+    final targetValue = list.fold<num>(0, (a, t) => a + toNum(t['target_value']));
+    final namaFilter = _filterStore == null ? null : '${list.isEmpty ? '' : list.first['toko']}';
 
     final hk = HariKerja.dari(_tanggal);
 
     final out = <Widget>[
+      if (_toko.length > 1)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DropdownButtonFormField<int?>(
+            initialValue: _filterStore,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Tampilkan toko', prefixIcon: Icon(Icons.filter_alt), isDense: true),
+            items: [
+              DropdownMenuItem<int?>(value: null, child: Text(me.isPic ? 'Semua toko' : 'Semua toko area ${me.area}')),
+              for (final t in _toko) DropdownMenuItem<int?>(value: toNum(t['store_id']).toInt(), child: Text('${t['toko']}')),
+            ],
+            onChanged: (v) => setState(() => _filterStore = v),
+          ),
+        ),
       TimegoneBar(hk: hk, tampilSisa: false),
       KalenderPenjualan(
-        key: ValueKey('kal-${_toko.length}'),
+        key: const ValueKey('kal-atasan'),
         selected: _tanggal,
-        toko: _toko,
+        storeId: _filterStore,
         onSelect: (d) {
           setState(() => _tanggal = d);
           _load();
         },
       ),
+      KontribusiBayar(tanggal: _tanggal, storeId: _filterStore),
       Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 8),
-        child: Text('Laporan ${hariTgl(_tanggal)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+        child: Text('Laporan ${hariTgl(_tanggal)}${namaFilter == null ? '' : ' · $namaFilter'}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       StatGrid(children: [
         StatCard(label: 'Laporan terkirim', value: '$terkirim/${wajib.length}', sub: 'PC wajib lapor', icon: Icons.verified),
@@ -200,13 +224,17 @@ class _AtasanHomeState extends State<AtasanHome> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Column(children: [
             ProgressTile(
-              label: me.isTl ? 'Pencapaian TL (unit HP, bulan ini)' : 'Unit HP bulan ini',
+              label: _filterStore != null
+                  ? 'Unit HP bulan ini'
+                  : (me.isTl ? 'Pencapaian TL (unit HP, bulan ini)' : 'Unit HP bulan ini'),
               actual: unitBulan,
               target: targetUnit,
               fmt: (v) => '${angka(v)} unit',
             ),
             ProgressTile(
-              label: me.isTl ? 'Pencapaian TL (value HP, bulan ini)' : 'Value HP bulan ini',
+              label: _filterStore != null
+                  ? 'Value HP bulan ini'
+                  : (me.isTl ? 'Pencapaian TL (value HP, bulan ini)' : 'Value HP bulan ini'),
               actual: valueBulan,
               target: targetValue,
               fmt: rupiah,
@@ -217,7 +245,7 @@ class _AtasanHomeState extends State<AtasanHome> {
     ];
 
     String? area;
-    for (final t in _toko) {
+    for (final t in list) {
       if (t['area'] != area) {
         area = '${t['area']}';
         out.add(SectionHeader('Area $area'));
@@ -337,6 +365,16 @@ class _AtasanHomeState extends State<AtasanHome> {
           ),
         ),
       ],
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.manage_accounts),
+          title: const Text('Akun PC'),
+          subtitle: Text(me.isPic ? 'Tambah, ubah nama, pindah toko, hapus PC (semua area)'
+              : 'Tambah, ubah nama, pindah toko, hapus PC di area ${me.area}'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => go(const AkunPcScreen()),
+        ),
+      ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.checklist),
