@@ -305,21 +305,18 @@ class LaporanCard extends StatelessWidget {
     return _line('MS ${segmenLabel[seg]}', 'OPPO ${angka(oppo)} · lain ${angka(lain)} · $ms', small: true);
   }
 
-  /// Satu brand kompetitor dengan rincian per segmen dan tipe.
+  /// Satu brand lain dengan unit per segmen harga, misal "vivo 6 unit · < 3 jt 3 · 3 jt - 6 jt 2 · 6 jt up 1".
   List<Widget> _brandLines(String brand, num total, List<Map<String, dynamic>> detail) {
     final rows = detail.where((d) => d['brand'] == brand).toList();
+    num seg(String s) => rows.where((d) => d['segmen'] == s).fold<num>(0, (a, d) => a + toNum(d['unit']));
+    final rincian = [for (final s in segmenList) if (seg(s) > 0) '${segmenLabel[s]}: ${angka(seg(s))}'].join(' · ');
     return [
       _line(brand, '${angka(total)} unit'),
-      for (final s in segmenList)
-        if (rows.any((d) => d['segmen'] == s))
-          Padding(
-            padding: const EdgeInsets.only(left: 10, bottom: 1),
-            child: Text(
-              '${segmenLabel[s]}: ${rows.where((d) => d['segmen'] == s).fold<num>(0, (a, d) => a + toNum(d['unit']))} '
-              '(${rows.where((d) => d['segmen'] == s).map((d) => '${d['tipe']} ${d['unit']} unit').join(', ')})',
-              style: const TextStyle(color: _muted, fontSize: 10.5),
-            ),
-          ),
+      if (rincian.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(left: 10, bottom: 1),
+          child: Text(rincian, style: const TextStyle(color: _muted, fontSize: 10.5)),
+        ),
     ];
   }
 
