@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
 import '../../data/nka.dart';
 import '../../services/akun.dart';
+import '../../services/presence_service.dart';
 import '../../services/push_service.dart';
 import '../../services/session.dart';
 import '../../services/update_service.dart';
@@ -10,6 +13,7 @@ import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/kontribusi_bayar.dart';
 import '../../widgets/sell_out_card.dart';
+import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
 import 'akun_atasan_screen.dart';
 import 'akun_pc_screen.dart';
@@ -37,6 +41,8 @@ class _AtasanHomeState extends State<AtasanHome> {
   int _unread = 0;
   int? _filterStore; // null = semua toko di cakupan
   RealtimeChannel? _channel;
+  Timer? _refresh;
+  final Map<String, StatusOnline> _online = {}; // pc_id -> status online
 
   Profile get me => Session.current!;
 
@@ -48,6 +54,10 @@ class _AtasanHomeState extends State<AtasanHome> {
       if (mounted) _bukaAktivitas();
     };
     PushService.registerAdmin();
+    // Perbarui lampu online PC setiap 1 menit selama halaman terbuka
+    _refresh = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted && _tab == 0) _load();
+    });
     _load();
     _loadUnread();
     _channel = Session.db
@@ -70,6 +80,7 @@ class _AtasanHomeState extends State<AtasanHome> {
   @override
   void dispose() {
     PushService.onOpenInbox = null;
+    _refresh?.cancel();
     final c = _channel;
     if (c != null) Session.db.removeChannel(c);
     super.dispose();
@@ -95,6 +106,16 @@ class _AtasanHomeState extends State<AtasanHome> {
     });
     try {
       _toko = asList(await Session.db.rpc('status_toko', params: {'p_tanggal': ymd(_tanggal)}));
+      try {
+        final pcs = asList(await Session.db
+            .from('profiles')
+            .select('id,auth_uid,last_seen,last_login,logged_in')
+            .eq('role', 'pc')
+            .eq('aktif', true));
+        _online
+          ..clear()
+          ..addAll({for (final p in pcs) '${p['id']}': StatusOnline.dari(p, parseWib)});
+      } catch (_) {}
     } catch (e) {
       _error = errMsg(e);
     }
@@ -294,6 +315,14 @@ class _AtasanHomeState extends State<AtasanHome> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${t['toko']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                   Text(nonPc ? 'Non PC (diinput TL)' : 'PC: ${t['pc'] ?? '-'}', style: Theme.of(context).textTheme.bodySmall),
+                  if (!nonPc && _online['${t['pc_id']}'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: InkWell(
+                        onTap: () => showRiwayatLogin(context, '${t['pc_id']}', '${t['pc']}', _online['${t['pc_id']}']!),
+                        child: StatusOnlineRow(status: _online['${t['pc_id']}']!),
+                      ),
+                    ),
                 ]),
               ),
               if (!nonPc) laporanPill,

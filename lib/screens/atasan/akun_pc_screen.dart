@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../services/presence_service.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
 
 /// Kelola akun PC: tambah, ubah nama, pindah toko, hapus, reset password.
@@ -39,7 +41,7 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
       final db = Session.db;
       final res = await Future.wait<dynamic>([
         db.from('stores').select('id,nama,area_id,punya_pc,areas(nama)').eq('aktif', true).order('area_id').order('id'),
-        db.from('profiles').select('id,nama,store_id,auth_uid').eq('role', 'pc').eq('aktif', true).order('nama'),
+        db.from('profiles').select('id,nama,store_id,auth_uid,last_seen,last_login,logged_in').eq('role', 'pc').eq('aktif', true).order('nama'),
       ]);
       _stores = asList(res[0]).where(_bolehToko).toList();
       final ids = _stores.map((s) => toNum(s['id']).toInt()).toSet();
@@ -173,7 +175,15 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text('${p['nama']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(p['auth_uid'] == null ? 'Belum membuat password' : 'Sudah aktif login'),
+            subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              StatusOnlineRow(status: StatusOnline.dari(p, parseWib)),
+              Text(
+                p['auth_uid'] == null
+                    ? 'Belum membuat password'
+                    : 'Login terakhir: ${p['last_login'] == null ? '-' : waktuSingkat(parseWib('${p['last_login']}'))}',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ]),
             onTap: _busy ? null : () => _form(p),
             trailing: PopupMenuButton<String>(
               enabled: !_busy,
@@ -181,8 +191,10 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
                 if (v == 'ubah') _form(p);
                 if (v == 'reset') _reset(p);
                 if (v == 'hapus') _hapus(p);
+                if (v == 'riwayat') showRiwayatLogin(context, '${p['id']}', '${p['nama']}', StatusOnline.dari(p, parseWib));
               },
               itemBuilder: (_) => [
+                const PopupMenuItem(value: 'riwayat', child: Text('Riwayat login')),
                 const PopupMenuItem(value: 'ubah', child: Text('Ubah nama / pindah toko')),
                 if (p['auth_uid'] != null) const PopupMenuItem(value: 'reset', child: Text('Reset password')),
                 const PopupMenuItem(value: 'hapus', child: Text('Hapus PC')),

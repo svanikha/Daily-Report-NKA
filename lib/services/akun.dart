@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 import '../screens/login_screen.dart';
 import '../widgets/widgets.dart';
 import 'notif_service.dart';
+import 'presence_service.dart';
 import 'push_service.dart';
 import 'session.dart';
 
@@ -47,6 +48,7 @@ Future<void> logout(BuildContext context) async {
   if (!ok) return;
   await NotifService.cancelAll();
   if (Session.current?.usesAdminHome ?? false) await PushService.unregister();
+  await PresenceService.logout();
   await Session.db.auth.signOut();
   Session.current = null;
   if (!context.mounted) return;

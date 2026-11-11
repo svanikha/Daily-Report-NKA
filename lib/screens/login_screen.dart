@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
+import '../services/presence_service.dart';
 import '../services/session.dart';
 import '../theme.dart';
 import '../utils.dart';
@@ -111,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await auth.signOut();
         throw 'Akun belum terhubung ke data. Hubungi Trainer atau PIC NKA.';
       }
+      await PresenceService.login();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => homeFor(prof)),

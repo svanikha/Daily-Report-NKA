@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'screens/session_gate.dart';
 import 'services/notif_service.dart';
+import 'services/presence_service.dart';
 import 'services/push_service.dart';
 import 'services/update_service.dart';
 import 'theme.dart';
@@ -21,6 +22,8 @@ Future<void> main() async {
   runApp(const DailyReportApp());
   // Cek update saat aplikasi dibuka, setiap kembali dari latar belakang, dan tiap 30 menit.
   UpdateService.start();
+  // Tanda aktif (status online) setiap 2 menit selama aplikasi terbuka.
+  PresenceService.start();
 }
 
 class DailyReportApp extends StatelessWidget {

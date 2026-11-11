@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../config.dart';
+import '../services/presence_service.dart';
 import '../services/session.dart';
 import '../widgets/widgets.dart';
 import 'atasan/atasan_home.dart';
@@ -60,7 +61,14 @@ class SessionGate extends StatefulWidget {
 }
 
 class _SessionGateState extends State<SessionGate> {
-  late Future<Profile?> _future = Session.load();
+  late Future<Profile?> _future = _muat();
+
+  // Sesi login tersimpan: catat "aplikasi dibuka" untuk status online & riwayat login.
+  static Future<Profile?> _muat() async {
+    final p = await Session.load();
+    if (p != null) PresenceService.buka();
+    return p;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +89,7 @@ class _SessionGateState extends State<SessionGate> {
           return Scaffold(
             body: ErrorRetry(
               error: 'Gagal memuat akun: ${errMsg(snap.error!)}',
-              onRetry: () => setState(() => _future = Session.load()),
+              onRetry: () => setState(() => _future = _muat()),
             ),
           );
         }
