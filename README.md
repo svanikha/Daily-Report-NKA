@@ -24,6 +24,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 9. `supabase/tahap1i.sql` → nama Alwisius, Trainer di laporan, kalender NOSELL, kontribusi Cash/Kredit, kelola akun PC
 10. `supabase/tahap1j.sql` → lampu online PC (hijau/merah), login terakhir, riwayat login
 11. `supabase/tahap1k.sql` → pilihan istirahat 1 jam atau 3 jam
+12. `supabase/tahap2a.sql` → KPI, insentif, dan estimasi gaji PC (data awal November 2026)
 
 ## Peran
 

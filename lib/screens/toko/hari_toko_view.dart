@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/nka.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/estimasi_gaji.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
@@ -116,6 +117,13 @@ class HariTokoViewState extends State<HariTokoView> {
         _statusLaporan(laporan, kurang),
         TimegoneBar(hk: hk),
         SellOutCard(hari: hari, bulan: bulan, target: target, hk: hk),
+        if (t.punyaPc)
+          EstimasiGajiCard(
+            key: ValueKey('gaji-${t.storeId}-${t.tgl}-${_r['laporan'] != null}'),
+            storeId: t.storeId,
+            tanggal: t.tanggal,
+            pcNama: t.pcNama,
+          ),
         KalenderPenjualan(key: ValueKey('kal-${t.storeId}'), selected: t.tanggal, storeId: t.storeId),
         const SectionHeader('Laporan harian'),
         _tile(

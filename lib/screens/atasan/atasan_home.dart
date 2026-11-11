@@ -19,6 +19,7 @@ import 'akun_atasan_screen.dart';
 import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
 import 'checklist_screen.dart';
+import 'kpi_screen.dart';
 import 'offday_screen.dart';
 import 'produk_screen.dart';
 import 'target_screen.dart';
@@ -395,6 +396,17 @@ class _AtasanHomeState extends State<AtasanHome> {
           ),
         ),
       ],
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.payments),
+          title: const Text('KPI & insentif'),
+          subtitle: Text(me.isPic
+              ? 'UMR, tier, potongan, bonus, denda, insentif produk (semua area)'
+              : 'UMR, tier, potongan, bonus, denda, insentif produk area ${me.area}'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => go(const KpiScreen()),
+        ),
+      ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.manage_accounts),
