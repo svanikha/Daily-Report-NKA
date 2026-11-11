@@ -245,7 +245,7 @@ class LaporanCard extends StatelessWidget {
         if (ist != null)
           _section('ISTIRAHAT', [
             _line(
-              'Pilihan ${toNum(ist['durasi_menit']) == 60 ? '1 jam' : '2 jam'}',
+              'Pilihan ${labelDurasi(toNum(ist['durasi_menit']))}',
               ist['selesai'] == null
                   ? '${jamMenit(parseWib('${ist['mulai']}'))} - belum kembali'
                   : '${jamMenit(parseWib('${ist['mulai']}'))}-${jamMenit(parseWib('${ist['selesai']}'))}'

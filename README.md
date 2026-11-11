@@ -23,6 +23,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 8. `supabase/tahap1h.sql` → batas laporan PC 22.30 WIB, notifikasi PC tidak kirim laporan juga pukul 22.30
 9. `supabase/tahap1i.sql` → nama Alwisius, Trainer di laporan, kalender NOSELL, kontribusi Cash/Kredit, kelola akun PC
 10. `supabase/tahap1j.sql` → lampu online PC (hijau/merah), login terakhir, riwayat login
+11. `supabase/tahap1k.sql` → pilihan istirahat 1 jam atau 3 jam
 
 ## Peran
 

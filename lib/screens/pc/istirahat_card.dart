@@ -10,7 +10,7 @@ import '../../utils.dart';
 import '../../widgets/photo_widgets.dart';
 import '../../widgets/widgets.dart';
 
-/// Istirahat PC (hanya jika keluar toko): pilih 1 jam / 2 jam, wajib selfie di area toko
+/// Istirahat PC (hanya jika keluar toko): pilih 1 jam / 3 jam, wajib selfie di area toko
 /// saat mulai dan saat kembali. Lokasi divalidasi lagi di server.
 class IstirahatCard extends StatefulWidget {
   final Map<String, dynamic>? istirahat; // baris breaks hari ini
@@ -55,7 +55,7 @@ class _IstirahatCardState extends State<IstirahatCard> {
   }
 
   Future<void> _mulai(int menit) async {
-    final label = menit == 60 ? '1 jam' : '2 jam';
+    final label = labelDurasi(menit);
     final ok = await confirmDialog(
       context,
       'Mulai istirahat $label?',
@@ -131,9 +131,9 @@ class _IstirahatCardState extends State<IstirahatCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _busy || lewatBatasLaporan() ? null : () => _mulai(120),
+                  onPressed: _busy || lewatBatasLaporan() ? null : () => _mulai(180),
                   icon: const Icon(Icons.camera_front),
-                  label: const Text('2 jam'),
+                  label: const Text('3 jam'),
                 ),
               ),
             ]),
@@ -145,7 +145,7 @@ class _IstirahatCardState extends State<IstirahatCard> {
 
     final mulai = parseWib('${b!['mulai']}');
     final durasi = toNum(b!['durasi_menit']).toInt();
-    final label = durasi == 60 ? '1 jam' : '2 jam';
+    final label = labelDurasi(durasi);
     if (_berjalan) {
       final batas = mulai.add(Duration(minutes: durasi));
       final sisa = batas.difference(wibNow()).inMinutes;

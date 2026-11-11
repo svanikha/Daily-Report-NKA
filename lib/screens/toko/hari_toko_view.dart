@@ -250,7 +250,7 @@ class HariTokoViewState extends State<HariTokoView> {
   Widget _istirahatInfo(Map<String, dynamic> b) {
     final mulai = parseWib('${b['mulai']}');
     final durasi = toNum(b['durasi_menit']).toInt();
-    final label = durasi == 60 ? '1 jam' : '2 jam';
+    final label = labelDurasi(durasi);
     if (b['selesai'] == null) {
       final lewat = wibNow().difference(mulai).inMinutes - durasi;
       return Card(

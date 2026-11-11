@@ -33,6 +33,12 @@ SosmedDef? sosmedByKode(String? kode) {
 }
 
 /// Batas waktu laporan malam (WIB). Update stok tidak punya batas jam.
+/// Pilihan durasi istirahat (menit): 1 jam atau 3 jam.
+const durasiIstirahat = [60, 180];
+
+/// "1 jam", "3 jam" (data lama 120 menit tampil "2 jam").
+String labelDurasi(num menit) => '${menit ~/ 60} jam';
+
 /// Batas laporan malam PC: 22.30 WIB. Pada jam yang sama, PC yang belum kirim laporan
 /// dikirim notifikasi "PC tidak kirim laporan" ke TL, Trainer, PIC.
 const batasLaporanText = '22.30';

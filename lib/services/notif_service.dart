@@ -156,7 +156,7 @@ class NotifService {
   static Future<void> scheduleBreak(DateTime mulaiWib, {int durasiMenit = 60}) async {
     try {
       await cancelBreak();
-      final label = durasiMenit == 60 ? '1 jam' : '2 jam';
+      final label = '${durasiMenit ~/ 60} jam';
       final batas = DateTime(mulaiWib.year, mulaiWib.month, mulaiWib.day, 22, 30);
       await _at(_breakBaseId, 'Waktu istirahat hampir habis', '10 menit lagi waktu istirahat $label habis.',
           mulaiWib.add(Duration(minutes: durasiMenit - 10)), _breakDetails);
