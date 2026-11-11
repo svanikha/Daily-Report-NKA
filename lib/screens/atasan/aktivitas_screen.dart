@@ -68,11 +68,24 @@ class _AktivitasScreenState extends State<AktivitasScreen> {
 
   Future<void> _load({bool markRead = false}) async {
     try {
-      _rows = asList(await Session.db
+      // Notifikasi yang sudah dihapus akun ini (tahap2e.sql) tidak ditampilkan
+      String? hapusPada;
+      final sembunyi = <String>{};
+      try {
+        final res = await Future.wait<dynamic>([
+          Session.db.from('profiles').select('inbox_hapus_pada').eq('id', Session.current!.id).maybeSingle(),
+          Session.db.from('aktivitas_disembunyikan').select('aktivitas_id').eq('profile_id', Session.current!.id),
+        ]);
+        hapusPada = res[0] == null ? null : asMap(res[0])['inbox_hapus_pada'] as String?;
+        sembunyi.addAll(asList(res[1]).map((r) => '${r['aktivitas_id']}'));
+      } catch (_) {}
+      var q = Session.db
           .from('aktivitas')
-          .select('id,store_id,jenis,judul,isi,tanggal,created_at,oleh,stores(nama,punya_pc,areas(nama))')
-          .order('created_at', ascending: false)
-          .limit(300));
+          .select('id,store_id,jenis,judul,isi,tanggal,created_at,oleh,stores(nama,punya_pc,areas(nama))');
+      if (hapusPada != null) q = q.gt('created_at', hapusPada);
+      _rows = asList(await q.order('created_at', ascending: false).limit(300))
+          .where((r) => !sembunyi.contains('${r['id']}'))
+          .toList();
       if (markRead) {
         final prof = await Session.db.from('profiles').select('inbox_dibaca_pada').eq('id', Session.current!.id).maybeSingle();
         final lastRaw = prof?['inbox_dibaca_pada'];
@@ -122,12 +135,56 @@ class _AktivitasScreenState extends State<AktivitasScreen> {
     ));
   }
 
+  Future<void> _hapus(List<String> ids) async {
+    if (ids.isEmpty) return;
+    setState(() => _rows.removeWhere((r) => ids.contains('${r['id']}')));
+    try {
+      await Session.db.rpc('hapus_notif', params: {'p_ids': ids});
+    } catch (e) {
+      if (mounted) showErr(context, e);
+      _load();
+    }
+  }
+
+  Future<void> _hapusTampil(List<Map<String, dynamic>> list) async {
+    final ok = await confirmDialog(context, 'Hapus ${list.length} notifikasi "$_filter"?',
+        'Notifikasi hanya hilang dari daftar akun kamu. Data laporan toko tidak terhapus.', yes: 'Hapus');
+    if (ok) _hapus([for (final r in list) '${r['id']}']);
+  }
+
+  Future<void> _hapusSemua() async {
+    final ok = await confirmDialog(context, 'Hapus semua notifikasi?',
+        'Daftar notifikasi akun kamu dikosongkan. Notifikasi baru tetap masuk. Data laporan toko tidak terhapus.',
+        yes: 'Hapus semua');
+    if (!ok) return;
+    try {
+      await Session.db.rpc('hapus_semua_notif');
+      if (mounted) setState(() => _rows = []);
+    } catch (e) {
+      if (mounted) showErr(context, e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final list = _rows.where((r) => _filter == 'Semua' || _jenisInfo['${r['jenis']}']?.$3 == _filter).toList();
     final today = wibToday();
     return Scaffold(
-      appBar: AppBar(title: const Text('Aktivitas toko')),
+      appBar: AppBar(
+        title: const Text('Aktivitas toko'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Hapus notifikasi',
+            onSelected: (v) => v == 'semua' ? _hapusSemua() : _hapusTampil(list),
+            itemBuilder: (_) => [
+              if (_filter != 'Semua')
+                PopupMenuItem(value: 'filter', child: Text('Hapus semua "$_filter" (${list.length})')),
+              const PopupMenuItem(value: 'semua', child: Text('Hapus semua notifikasi')),
+            ],
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -145,7 +202,11 @@ class _AktivitasScreenState extends State<AktivitasScreen> {
                           ),
                       ]),
                     ),
-                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text('Geser notifikasi ke kiri untuk menghapus. Ikon tempat sampah di atas untuk hapus semua.',
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ),
                     if (list.isEmpty) const EmptyState(icon: Icons.notifications_none, text: 'Belum ada aktivitas'),
                     for (final r in list) _tile(r, today),
                   ]),
@@ -158,6 +219,22 @@ class _AktivitasScreenState extends State<AktivitasScreen> {
     final waktu = parseWib(r['created_at'] as String);
     final baru = _baru.contains(r['id']);
     final warna = info?.$2 ?? Colors.grey;
+    return Dismissible(
+      key: ValueKey('akt-${r['id']}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: Colors.red.shade700,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => _hapus(['${r['id']}']),
+      child: _card(r, today, info, waktu, baru, warna),
+    );
+  }
+
+  Widget _card(Map<String, dynamic> r, DateTime today, (IconData, Color, String)? info, DateTime waktu, bool baru,
+      Color warna) {
     return Card(
       color: baru ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.06) : null,
       child: ListTile(

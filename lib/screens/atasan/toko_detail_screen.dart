@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../data/nka.dart';
+import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/pengingat_pc.dart';
+import '../../widgets/widgets.dart';
 import '../toko/hari_toko_view.dart';
 
 /// Detail satu toko untuk TL / Trainer / PIC: sama dengan beranda PC, tanggal bisa dipilih.
@@ -17,6 +19,7 @@ class TokoDetailScreen extends StatefulWidget {
 class _TokoDetailScreenState extends State<TokoDetailScreen> {
   final _view = GlobalKey<HariTokoViewState>();
   late TokoHari _toko = widget.toko;
+  bool _busy = false;
 
   Future<void> _pickDate() async {
     final d = await showDatePicker(
@@ -38,6 +41,35 @@ class _TokoDetailScreenState extends State<TokoDetailScreen> {
         ));
   }
 
+  /// Reset semua laporan toko pada tanggal terpilih (jika PC salah input): semua kembali 0.
+  Future<void> _reset() async {
+    final tgl = hariTgl(_toko.tanggal);
+    final ok = await confirmDialog(
+      context,
+      'Reset laporan $tgl?',
+      'SEMUA data ${_toko.toko} tanggal ini dihapus dan kembali 0:\n'
+          '• stok\n• penjualan HP & IoT (termasuk NOSELL)\n• MS Allbrand\n• cek display + foto\n'
+          '• activity sosmed & cek limit leasing\n• laporan terkirim\n\n'
+          'Data istirahat tidak ikut dihapus. Tindakan ini tidak bisa dibatalkan.',
+      yes: 'Lanjut',
+    );
+    if (!ok || !mounted) return;
+    final yakin = await confirmDialog(context, 'Yakin reset?',
+        'Data ${_toko.toko} $tgl akan hilang permanen dan PC harus mengisi ulang.', yes: 'Ya, reset');
+    if (!yakin) return;
+    setState(() => _busy = true);
+    try {
+      final r = asMap(await Session.db.rpc('reset_laporan', params: {'p_store': _toko.storeId, 'p_tanggal': _toko.tgl}));
+      if (mounted) {
+        showMsg(context, 'Laporan $tgl direset (${r['penjualan_dihapus'] ?? 0} penjualan dihapus). PC diberi pengingat.');
+      }
+      await _view.currentState?.load();
+    } catch (e) {
+      if (mounted) showErr(context, e);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,10 +87,29 @@ class _TokoDetailScreenState extends State<TokoDetailScreen> {
               tooltip: 'Ingatkan PC',
             ),
           IconButton(onPressed: _pickDate, icon: const Icon(Icons.calendar_month), tooltip: 'Pilih tanggal'),
-          IconButton(onPressed: () => _view.currentState?.load(), icon: const Icon(Icons.refresh), tooltip: 'Muat ulang'),
+          PopupMenuButton<String>(
+            enabled: !_busy,
+            onSelected: (v) {
+              if (v == 'muat') _view.currentState?.load();
+              if (v == 'reset') _reset();
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'muat', child: ListTile(leading: Icon(Icons.refresh), title: Text('Muat ulang'))),
+              PopupMenuItem(
+                value: 'reset',
+                child: ListTile(
+                  leading: Icon(Icons.restart_alt, color: Colors.red.shade700),
+                  title: Text('Reset laporan tanggal ini', style: TextStyle(color: Colors.red.shade700)),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-      body: HariTokoView(key: _view, toko: _toko),
+      body: Column(children: [
+        if (_busy) const LinearProgressIndicator(),
+        Expanded(child: HariTokoView(key: _view, toko: _toko)),
+      ]),
     );
   }
 }

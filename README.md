@@ -28,6 +28,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 13. `supabase/tahap2b.sql` → MS Allbrand autosave (Today/Todate), kategori user penjualan, pengingat atasan ke PC. Setelah itu tempel ulang kode `supabase/functions/kirim-notif/index.ts` ke edge function **kirim-notif** lalu Deploy.
 14. `supabase/tahap2c.sql` → MS Allbrand per tanggal: tgl 1 s.d. hari ini bisa diisi/diedit walau sudah lewat, tersimpan sampai dihapus.
 15. `supabase/tahap2d.sql` → urutan brand MS Allbrand (Vivo … Huawei, Others), Honor/Advan dinonaktifkan, Apple hanya 6 jt up.
+16. `supabase/tahap2e.sql` → display wajib foto per kategori (atasan bisa hapus kategori), hapus notifikasi per akun, reset laporan PC per tanggal.
 
 ## Peran
 
