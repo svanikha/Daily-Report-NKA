@@ -26,6 +26,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 11. `supabase/tahap1k.sql` → pilihan istirahat 1 jam atau 3 jam
 12. `supabase/tahap2a.sql` → KPI, insentif, dan estimasi gaji PC (data awal November 2026)
 13. `supabase/tahap2b.sql` → MS Allbrand autosave (Today/Todate), kategori user penjualan, pengingat atasan ke PC. Setelah itu tempel ulang kode `supabase/functions/kirim-notif/index.ts` ke edge function **kirim-notif** lalu Deploy.
+14. `supabase/tahap2c.sql` → MS Allbrand per tanggal: tgl 1 s.d. hari ini bisa diisi/diedit walau sudah lewat, tersimpan sampai dihapus.
 
 ## Peran
 
