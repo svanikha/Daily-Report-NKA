@@ -40,7 +40,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
       final res = await Future.wait<dynamic>([
         db
             .from('sales')
-            .select('id,tipe,nama_produk,qty,harga,subtotal,metode,cara_bayar,tanggal,created_at')
+            .select('id,tipe,nama_produk,qty,harga,subtotal,metode,cara_bayar,kategori_user,tanggal,created_at')
             .eq('store_id', t.storeId)
             .eq('tanggal', t.tgl)
             .order('created_at'),
@@ -176,6 +176,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                             title: Text('${r['nama_produk']}'),
                             subtitle: Text([
                               'x${r['qty']} · ${rupiah(toNum(r['subtotal']))}',
+                              if (r['kategori_user'] != null) '${r['kategori_user']}',
                               if (r['metode'] != null) '${r['metode']} ${r['cara_bayar'] ?? ''}',
                             ].join(' · ')),
                             trailing: bolehJual

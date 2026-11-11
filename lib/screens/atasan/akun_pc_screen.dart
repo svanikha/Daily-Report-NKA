@@ -151,8 +151,9 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
               ? ErrorRetry(error: _error!, onRetry: _load)
               : ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 88), children: [
                   if (_busy) const LinearProgressIndicator(),
-                  const InfoBanner('Ketuk PC untuk mengubah nama atau memindah toko. PC baru cukup memilih namanya '
-                      'di layar login lalu membuat password sendiri.'),
+                  const InfoBanner('Ketuk PC untuk mengubah nama atau memindah toko. Tombol gembok = reset password '
+                      '(PC lupa password): PC membuat password baru saat login berikutnya. PC baru cukup memilih '
+                      'namanya di layar login lalu membuat password sendiri.'),
                   for (final s in _stores) ..._tokoSection(s),
                 ]),
     );
@@ -185,7 +186,14 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
               ),
             ]),
             onTap: _busy ? null : () => _form(p),
-            trailing: PopupMenuButton<String>(
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (p['auth_uid'] != null)
+                IconButton(
+                  tooltip: 'Reset password',
+                  onPressed: _busy ? null : () => _reset(p),
+                  icon: const Icon(Icons.lock_reset),
+                ),
+              PopupMenuButton<String>(
               enabled: !_busy,
               onSelected: (v) {
                 if (v == 'ubah') _form(p);
@@ -200,6 +208,7 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
                 const PopupMenuItem(value: 'hapus', child: Text('Hapus PC')),
               ],
             ),
+            ]),
           ),
         ),
     ];

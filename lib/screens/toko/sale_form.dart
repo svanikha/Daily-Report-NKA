@@ -23,6 +23,7 @@ class _SaleFormState extends State<SaleForm> {
   bool _busy = false;
   String? _metode; // Cash | Kredit
   String? _caraBayar;
+  String? _kategori; // Walk-in | Databased | Online
   late DateTime _tanggal = widget.toko.tanggal;
 
   bool get _isHp => widget.tipe == 'HP';
@@ -50,6 +51,10 @@ class _SaleFormState extends State<SaleForm> {
     final p = _product;
     if (p == null) {
       showMsg(context, 'Pilih produk terlebih dahulu');
+      return;
+    }
+    if (_kategori == null) {
+      showMsg(context, 'Pilih kategori user: Walk-in, Databased, atau Online');
       return;
     }
     if (_isHp && _metode == null) {
@@ -80,6 +85,7 @@ class _SaleFormState extends State<SaleForm> {
         'harga': p['harga'],
         'metode': _metode,
         'cara_bayar': _caraBayar,
+        'kategori_user': _kategori,
       });
       // Ada penjualan: tanda "tidak ada penjualan" untuk tanggal itu tidak berlaku lagi.
       try {
@@ -151,6 +157,19 @@ class _SaleFormState extends State<SaleForm> {
             title: const Text('Subtotal'),
             trailing: Text(rupiah(_harga * _qty), style: t.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           ),
+        ),
+        const SizedBox(height: 16),
+        const Text('Kategori user *', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          emptySelectionAllowed: true,
+          segments: const [
+            ButtonSegment(value: 'Walk-in', label: Text('Walk-in'), icon: Icon(Icons.directions_walk)),
+            ButtonSegment(value: 'Databased', label: Text('Databased'), icon: Icon(Icons.contacts)),
+            ButtonSegment(value: 'Online', label: Text('Online'), icon: Icon(Icons.language)),
+          ],
+          selected: {if (_kategori != null) _kategori!},
+          onSelectionChanged: (s) => setState(() => _kategori = s.isEmpty ? null : s.first),
         ),
         const SizedBox(height: 16),
         Text(_isHp ? 'Metode pembayaran *' : 'Metode pembayaran (opsional)', style: const TextStyle(fontWeight: FontWeight.w600)),

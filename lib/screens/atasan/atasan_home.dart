@@ -12,6 +12,7 @@ import '../../services/update_service.dart';
 import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/kontribusi_bayar.dart';
+import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
@@ -327,6 +328,19 @@ class _AtasanHomeState extends State<AtasanHome> {
                 ]),
               ),
               if (!nonPc) laporanPill,
+              if (!nonPc && t['pc_id'] != null && isSameDay(_tanggal, wibToday()))
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Ingatkan PC',
+                  icon: Icon(Icons.notifications_active, color: Theme.of(context).colorScheme.primary),
+                  onPressed: () => showKirimPengingat(
+                    context,
+                    storeId: toNum(t['store_id']).toInt(),
+                    toko: '${t['toko']}',
+                    pcNama: t['pc'] as String?,
+                    pilihAwal: lap != null || libur != null ? const [] : pengingatBelum(t),
+                  ),
+                ),
             ]),
             const SizedBox(height: 8),
             Wrap(spacing: 6, runSpacing: 6, children: [
@@ -411,8 +425,8 @@ class _AtasanHomeState extends State<AtasanHome> {
         child: ListTile(
           leading: const Icon(Icons.manage_accounts),
           title: const Text('Akun PC'),
-          subtitle: Text(me.isPic ? 'Tambah, ubah nama, pindah toko, hapus PC (semua area)'
-              : 'Tambah, ubah nama, pindah toko, hapus PC di area ${me.area}'),
+          subtitle: Text(me.isPic ? 'Tambah, ubah, hapus, reset password PC (semua area)'
+              : 'Tambah, ubah, hapus, reset password PC di area ${me.area}'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => go(const AkunPcScreen()),
         ),

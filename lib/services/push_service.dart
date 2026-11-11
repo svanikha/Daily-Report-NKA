@@ -32,7 +32,11 @@ class PushService {
     }
   }
 
-  /// Dipanggil saat admin masuk: simpan token HP admin ke server.
+  /// Dipanggil saat masuk (atasan maupun PC): simpan token HP ke server.
+  /// PC menerima pengingat dari TL / Trainer / PIC; atasan menerima semua aktivitas toko.
+  static Future<void> register() => registerAdmin();
+
+  /// Simpan token HP ke server.
   static Future<void> registerAdmin() async {
     if (!_ready) return;
     try {

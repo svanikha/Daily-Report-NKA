@@ -5,6 +5,7 @@
 //   - TL dan Trainer yang memegang area toko tersebut
 //   - semua PIC NKA
 // kecuali orang yang melakukan aktivitas itu sendiri.
+// Body {"pengingat_id": "..."} (tabel "pengingat") dikirim ke HP PC toko tersebut.
 // Push tetap muncul walaupun aplikasi tidak sedang dibuka.
 //
 // Secret yang dibutuhkan (Edge Functions -> Secrets):
@@ -106,6 +107,51 @@ async function kirimEvent(db: SupabaseClient, eventId: string) {
   return json({ event: eventId, penerima: list.length, dikirim: ok });
 }
 
+/** Pengingat dari TL / Trainer / PIC ke HP PC toko. */
+async function kirimPengingat(db: SupabaseClient, id: string) {
+  const { data: pg } = await db.from("pengingat").select("*").eq("id", id).is("push_pada", null).maybeSingle();
+  if (!pg) return json({ pengingat: id, dikirim: 0, catatan: "tidak ada atau sudah dikirim" });
+  await db.from("pengingat").update({ push_pada: new Date().toISOString() }).eq("id", id);
+
+  const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
+  if (!saRaw) return json({ pengingat: id, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
+  const sa = JSON.parse(saRaw) as ServiceAccount;
+
+  const { data: pc } = await db.from("profiles").select("id, fcm_token").eq("id", pg.pc_id).maybeSingle();
+  if (!pc?.fcm_token) {
+    await db.from("pengingat").update({ push_ok: false }).eq("id", id);
+    return json({ pengingat: id, dikirim: 0, catatan: "HP PC belum terdaftar" });
+  }
+  const { data: dari } = await db.from("profiles").select("nama, role").eq("id", pg.dari).maybeSingle();
+  const peran = dari?.role === "tl" ? "TL" : dari?.role === "trainer" ? "Trainer" : "PIC NKA";
+  const judul = `Pengingat dari ${dari?.nama ?? "atasan"} (${peran})`;
+
+  const access = await googleAccessToken(sa);
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: {
+        token: pc.fcm_token,
+        notification: { title: judul, body: pg.pesan },
+        data: { jenis: "pengingat", store_id: String(pg.store_id), pengingat_id: String(pg.id) },
+        android: {
+          priority: "high",
+          notification: { channel_id: "aktivitas", sound: "default", tag: String(pg.id) },
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    if (res.status === 404 || err.includes("UNREGISTERED")) {
+      await db.from("profiles").update({ fcm_token: null }).eq("id", pc.id).eq("fcm_token", pc.fcm_token);
+    }
+  }
+  await db.from("pengingat").update({ push_ok: res.ok }).eq("id", id);
+  return json({ pengingat: id, dikirim: res.ok ? 1 : 0 });
+}
+
 Deno.serve(async (req) => {
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   // deno-lint-ignore no-explicit-any
@@ -116,6 +162,7 @@ Deno.serve(async (req) => {
     body = {};
   }
   try {
+    if (body?.pengingat_id) return await kirimPengingat(db, String(body.pengingat_id));
     if (!body?.event_id) return json({ error: "event_id wajib" }, 400);
     return await kirimEvent(db, String(body.event_id));
   } catch (e) {

@@ -5,6 +5,7 @@ import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/estimasi_gaji.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
 import '../pc/istirahat_card.dart';
@@ -114,6 +115,7 @@ class HariTokoViewState extends State<HariTokoView> {
             icon: Icons.beach_access,
             color: Colors.teal,
           ),
+        if (me.isPc) const PengingatPcCard(),
         _statusLaporan(laporan, kurang),
         TimegoneBar(hk: hk),
         SellOutCard(hari: hari, bulan: bulan, target: target, hk: hk),

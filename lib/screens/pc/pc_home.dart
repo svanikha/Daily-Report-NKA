@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/nka.dart';
 import '../../services/akun.dart';
 import '../../services/notif_service.dart';
+import '../../services/push_service.dart';
 import '../../services/session.dart';
 import '../../services/update_service.dart';
 import '../../utils.dart';
@@ -25,6 +26,8 @@ class _PcHomeState extends State<PcHome> {
   void initState() {
     super.initState();
     NotifService.requestPermission();
+    // HP PC didaftarkan agar menerima pengingat dari TL / Trainer / PIC walau aplikasi tertutup
+    PushService.register();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) UpdateService.check(context);
     });

@@ -5,6 +5,9 @@ import '../utils.dart';
 const cashViaList = ['Transfer', 'Tunai'];
 const kreditViaList = ['Avanto', 'Kredivo', 'HCI', 'Indodana', 'Kreditplus', 'Akulaku', 'Yesscredit'];
 
+/// Kategori user (pembeli) penjualan HP & IoT, disimpan di sales.kategori_user.
+const kategoriUserList = ['Walk-in', 'Databased', 'Online'];
+
 /// Leasing untuk cek limit (sama dengan pilihan Kredit di penjualan).
 const leasingList = kreditViaList;
 

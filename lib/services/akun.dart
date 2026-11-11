@@ -47,7 +47,7 @@ Future<void> logout(BuildContext context) async {
   final ok = await confirmDialog(context, 'Keluar?', 'Kamu perlu memasukkan password lagi saat masuk.', yes: 'Keluar');
   if (!ok) return;
   await NotifService.cancelAll();
-  if (Session.current?.usesAdminHome ?? false) await PushService.unregister();
+  await PushService.unregister();
   await PresenceService.logout();
   await Session.db.auth.signOut();
   Session.current = null;

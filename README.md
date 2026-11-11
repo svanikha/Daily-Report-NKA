@@ -25,6 +25,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 10. `supabase/tahap1j.sql` → lampu online PC (hijau/merah), login terakhir, riwayat login
 11. `supabase/tahap1k.sql` → pilihan istirahat 1 jam atau 3 jam
 12. `supabase/tahap2a.sql` → KPI, insentif, dan estimasi gaji PC (data awal November 2026)
+13. `supabase/tahap2b.sql` → MS Allbrand autosave (Today/Todate), kategori user penjualan, pengingat atasan ke PC. Setelah itu tempel ulang kode `supabase/functions/kirim-notif/index.ts` ke edge function **kirim-notif** lalu Deploy.
 
 ## Peran
 
@@ -114,7 +115,7 @@ Erafone Rajawali (Palangkaraya) tidak punya PC; penjualannya diinput TL Palangka
 - TL/Trainer bisa melengkapi data harian toko non PC, PC offday, atau PC yang tidak lapor.
 - Nomor HP konsumen hanya terlihat oleh PC pemiliknya, TL, Trainer, dan PIC NKA.
 - Setiap perubahan produk, harga, dan target tercatat di `audit_log`.
-- Lupa password: Trainer (untuk PC areanya) atau PIC NKA melakukan reset; pemilik membuat password baru saat login.
+- Lupa password: TL / Trainer (untuk PC areanya) atau PIC NKA melakukan reset; pemilik membuat password baru saat login.
 
 ## Struktur kode
 
