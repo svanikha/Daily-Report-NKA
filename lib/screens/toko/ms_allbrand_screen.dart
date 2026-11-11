@@ -30,6 +30,10 @@ class _MsAllbrandScreenState extends State<MsAllbrandScreen> {
   String? _saveError;
   List<Map<String, dynamic>> _brands = [];
 
+  /// brandId -> segmen yang berlaku (Apple hanya 6 jt up)
+  final Map<int, List<String>> _segBrand = {};
+  List<String> _seg(int brand) => _segBrand[brand] ?? segmenList;
+
   late DateTime _tgl = widget.toko.tanggal;
   late final DateTime _awal = DateTime(widget.toko.tanggal.year, widget.toko.tanggal.month, 1);
 
@@ -127,13 +131,17 @@ class _MsAllbrandScreenState extends State<MsAllbrandScreen> {
             .eq('tipe', 'HP'),
       ]);
       _brands = asList(res[0]);
+      _segBrand
+        ..clear()
+        ..addAll({for (final b in _brands) toNum(b['id']).toInt(): segmenBrand('${b['nama']}')});
       _data.clear();
       _terisi.clear();
       _oppo.clear();
       for (final d in asList(res[1])) {
         final m = _hari('${d['tanggal']}')[toNum(d['brand_id']).toInt()];
         final s = '${d['segmen']}';
-        if (m != null && m.containsKey(s)) m[s] = m[s]! + toNum(d['unit']).toInt();
+        final bid = toNum(d['brand_id']).toInt();
+        if (m != null && m.containsKey(s) && _seg(bid).contains(s)) m[s] = m[s]! + toNum(d['unit']).toInt();
       }
       for (final c in asList(res[2])) {
         final k = '${c['tanggal']}';
@@ -173,7 +181,7 @@ class _MsAllbrandScreenState extends State<MsAllbrandScreen> {
 
   List<Map<String, dynamic>> _detail(String k) => [
         for (final e in (_data[k] ?? const <int, Map<String, int>>{}).entries)
-          for (final s in segmenList)
+          for (final s in _seg(e.key))
             if ((e.value[s] ?? 0) > 0) {'brand_id': e.key, 'segmen': s, 'unit': e.value[s]},
       ];
 
@@ -524,7 +532,7 @@ class _MsAllbrandScreenState extends State<MsAllbrandScreen> {
             const SizedBox(width: 10),
             Text('Todate $todate', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
           ]),
-          for (final s in segmenList)
+          for (final s in _seg(id))
             Row(children: [
               Expanded(child: Text(segmenLabel[s]!)),
               IconButton(

@@ -59,6 +59,9 @@ bool lewatBatasLaporan([DateTime? wib]) {
 const segmenList = ['lt3', '3to6', 'gt6'];
 const segmenLabel = {'lt3': '< 3 jt', '3to6': '3 jt - 6 jt', 'gt6': '6 jt up'};
 
+/// Segmen yang berlaku untuk satu brand di MS Allbrand (Apple hanya 6 jt up).
+List<String> segmenBrand(String nama) => nama.toLowerCase() == 'apple' ? const ['gt6'] : segmenList;
+
 /// Hari kerja & timegone dalam satu bulan.
 /// timegone = tanggal hari ini / jumlah hari di bulan itu (10/30 = 33%).
 /// sisa hari kerja = hari berjalan s.d. akhir bulan (termasuk hari ini) dikurangi offday PC.

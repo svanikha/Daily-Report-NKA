@@ -43,6 +43,37 @@ class _LaporanScreenState extends State<LaporanScreen> {
         // Activity sosmed & cek limit (tahap1f.sql). Jika belum dijalankan, bagian Activity dikosongkan.
         _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
       } catch (_) {}
+      try {
+        // Tabel MS Allbrand: daftar brand aktif (urutan) + todate per brand & OPPO (tgl 1 s.d. tanggal laporan)
+        final db = Session.db;
+        final tg = widget.toko.tanggal;
+        final awal = ymd(DateTime(tg.year, tg.month, 1));
+        final res = await Future.wait<dynamic>([
+          db.from('competitor_brands').select('id,nama').eq('aktif', true).order('urutan'),
+          db
+              .from('competitor_sales_detail')
+              .select('brand_id,unit')
+              .eq('store_id', widget.toko.storeId)
+              .gte('tanggal', awal)
+              .lte('tanggal', widget.toko.tgl),
+          db
+              .from('sales')
+              .select('qty')
+              .eq('store_id', widget.toko.storeId)
+              .gte('tanggal', awal)
+              .lte('tanggal', widget.toko.tgl)
+              .eq('tipe', 'HP'),
+        ]);
+        final todate = <int, num>{};
+        for (final d in asList(res[1])) {
+          final b = toNum(d['brand_id']).toInt();
+          todate[b] = (todate[b] ?? 0) + toNum(d['unit']);
+        }
+        _r['ms_brands'] = [
+          for (final b in asList(res[0])) {'nama': b['nama'], 'todate': todate[toNum(b['id']).toInt()] ?? 0},
+        ];
+        _r['ms_oppo_todate'] = asList(res[2]).fold<num>(0, (a, s) => a + toNum(s['qty']));
+      } catch (_) {}
     } catch (e) {
       _error = errMsg(e);
     }
@@ -197,6 +228,8 @@ class LaporanCard extends StatelessWidget {
         _section('MS ALLBRAND', [
           if (r['kompetitor_terisi'] != true)
             const Text('MS Allbrand belum diisi', style: TextStyle(color: _red, fontSize: 12, fontWeight: FontWeight.w600))
+          else if (r['ms_brands'] != null)
+            _msTabel(msOppo, msDetail, unitHari)
           else ...[
             _line('MS OPPO hari ini',
                 totalHari > 0 ? '${angka(unitHari)} dari ${angka(totalHari)} unit (${(unitHari / totalHari * 100).toStringAsFixed(0)}%)' : '-'),
@@ -330,6 +363,76 @@ class LaporanCard extends StatelessWidget {
       if (toNum(lb['total']) > 0)
         _line('Cek limit bulan ini', '${lb['total']}x (${lb['approve']} approve · ${lb['reject']} reject)', small: true),
     ]);
+  }
+
+  /// Tabel MS Allbrand ringkas: baris = OPPO + brand (urutan tetap), kolom = segmen hari ini, Today, Todate.
+  /// Baris terakhir = MS OPPO (%) per kolom.
+  Widget _msTabel(Map<String, dynamic> msOppo, List<Map<String, dynamic>> detail, num oppoToday) {
+    final brands = asList(r['ms_brands']);
+    final oppoTodate = toNum(r['ms_oppo_todate']);
+    num seg(String brand, String s) => detail
+        .where((d) => '${d['brand']}'.toLowerCase() == brand.toLowerCase() && d['segmen'] == s)
+        .fold<num>(0, (a, d) => a + toNum(d['unit']));
+    num lainSeg(String s) => brands.fold<num>(0, (a, b) => a + seg('${b['nama']}', s));
+    final lainToday = segmenList.fold<num>(0, (a, s) => a + lainSeg(s));
+    final lainTodate = brands.fold<num>(0, (a, b) => a + toNum(b['todate']));
+    String n(num v) => v == 0 ? '-' : angka(v);
+    String pct(num o, num l) => o + l > 0 ? '${(o / (o + l) * 100).toStringAsFixed(0)}%' : '-';
+
+    const head = TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold);
+    const cell = TextStyle(color: _ink, fontSize: 10.5);
+    const bold = TextStyle(color: _ink, fontSize: 10.5, fontWeight: FontWeight.bold);
+    const oppoSt = TextStyle(color: brandGreen, fontSize: 10.5, fontWeight: FontWeight.bold);
+
+    Widget c(String t, TextStyle st, {bool kiri = false}) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+          child: Text(t, textAlign: kiri ? TextAlign.left : TextAlign.center, style: st),
+        );
+    TableRow row(List<String> v, TextStyle st, {Color? bg}) => TableRow(
+          decoration: BoxDecoration(color: bg),
+          children: [for (var i = 0; i < v.length; i++) c(v[i], st, kiri: i == 0)],
+        );
+
+    return Table(
+      border: TableBorder.all(color: const Color(0xFFDDE3E1), width: 0.6),
+      columnWidths: const {
+        0: FlexColumnWidth(1.6),
+        1: FlexColumnWidth(),
+        2: FlexColumnWidth(),
+        3: FlexColumnWidth(),
+        4: FlexColumnWidth(1.05),
+        5: FlexColumnWidth(1.1),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        row(['Brand', '<3jt', '3-6jt', '6jt+', 'Today', 'Todate'], head, bg: brandGreen),
+        row([
+          'OPPO',
+          for (final s in segmenList) n(toNum(msOppo[s])),
+          n(oppoToday),
+          n(oppoTodate),
+        ], oppoSt, bg: const Color(0xFFF1F8F4)),
+        for (var i = 0; i < brands.length; i++)
+          row([
+            '${brands[i]['nama']}',
+            for (final s in segmenList) n(seg('${brands[i]['nama']}', s)),
+            n(segmenList.fold<num>(0, (a, s) => a + seg('${brands[i]['nama']}', s))),
+            n(toNum(brands[i]['todate'])),
+          ], cell, bg: i.isOdd ? const Color(0xFFFAFBFB) : null),
+        row([
+          'Total',
+          for (final s in segmenList) n(toNum(msOppo[s]) + lainSeg(s)),
+          n(oppoToday + lainToday),
+          n(oppoTodate + lainTodate),
+        ], bold),
+        row([
+          'MS OPPO',
+          for (final s in segmenList) pct(toNum(msOppo[s]), lainSeg(s)),
+          pct(oppoToday, lainToday),
+          pct(oppoTodate, lainTodate),
+        ], oppoSt, bg: const Color(0xFFF1F8F4)),
+      ],
+    );
   }
 
   /// Satu segmen harga: OPPO vs brand lain + MS OPPO.
