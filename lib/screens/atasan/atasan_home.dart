@@ -11,6 +11,7 @@ import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/kontribusi_bayar.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
+import 'akun_atasan_screen.dart';
 import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
 import 'checklist_screen.dart';
@@ -375,6 +376,16 @@ class _AtasanHomeState extends State<AtasanHome> {
           onTap: () => go(const AkunPcScreen()),
         ),
       ),
+      if (me.isPic)
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.lock_reset),
+            title: const Text('Akun TL & Trainer'),
+            subtitle: const Text('Reset password TL dan Trainer yang lupa password'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const AkunAtasanScreen()),
+          ),
+        ),
       Card(
         child: ListTile(
           leading: const Icon(Icons.checklist),
