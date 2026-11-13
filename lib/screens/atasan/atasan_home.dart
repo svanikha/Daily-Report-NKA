@@ -17,6 +17,7 @@ import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
+import '../izin_notif_screen.dart';
 import 'akun_atasan_screen.dart';
 import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
@@ -78,6 +79,7 @@ class _AtasanHomeState extends State<AtasanHome> {
         .subscribe();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) UpdateService.check(context);
+      if (mounted) IzinNotif.tawarkan(context);
     });
   }
 

@@ -8,6 +8,9 @@ import '../utils.dart';
 /// Notifikasi lokal PC: pengingat stok pagi (10.00 & 10.45), laporan malam
 /// (21.00 & 21.45), dan waktu istirahat. Tidak dikirim di hari offday/izin.
 class NotifService {
+  /// Channel push utama (sama dengan profiles.notif_channel yang dipakai edge function kirim-notif).
+  static const kanalPenting = 'nka_penting';
+
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   static tz.Location? _jkt;
 
@@ -16,8 +19,9 @@ class NotifService {
       'stok',
       'Pengingat stok pagi',
       channelDescription: 'Pengingat update stok harian',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      visibility: NotificationVisibility.public,
     ),
   );
 
@@ -26,8 +30,9 @@ class NotifService {
       'report',
       'Pengingat laporan malam',
       channelDescription: 'Pengingat kirim laporan sebelum 22.30 WIB',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      visibility: NotificationVisibility.public,
     ),
   );
 
@@ -36,19 +41,21 @@ class NotifService {
       'istirahat',
       'Waktu istirahat',
       channelDescription: 'Pengingat agar segera kembali ke toko dan selfie',
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: Importance.max,
+      priority: Priority.max,
+      visibility: NotificationVisibility.public,
     ),
   );
 
   /// Channel push aktivitas toko (sama dengan channel_id yang dikirim edge function kirim-notif).
   static const _aktivitasDetails = NotificationDetails(
     android: AndroidNotificationDetails(
-      'aktivitas',
-      'Aktivitas toko',
-      channelDescription: 'Penjualan, stok, MS Allbrand, display, laporan, dan istirahat PC',
-      importance: Importance.high,
-      priority: Priority.high,
+      kanalPenting,
+      'Notifikasi penting',
+      channelDescription: 'Aktivitas toko, pengingat atasan, dan peringatan laporan',
+      importance: Importance.max,
+      priority: Priority.max,
+      visibility: NotificationVisibility.public,
     ),
   );
 
@@ -68,9 +75,21 @@ class NotifService {
       // walau aplikasi sedang ditutup.
       await android?.createNotificationChannel(const AndroidNotificationChannel(
         'aktivitas',
-        'Aktivitas toko',
+        'Aktivitas toko (lama)',
         description: 'Penjualan, stok, MS Allbrand, display, laporan, dan istirahat PC',
         importance: Importance.high,
+      ));
+      // Channel baru prioritas tertinggi: spanduk (heads-up), layar kunci, getar, dan suara.
+      // Dipakai push server untuk HP yang memasang aplikasi versi ini (profiles.notif_channel).
+      await android?.createNotificationChannel(const AndroidNotificationChannel(
+        kanalPenting,
+        'Notifikasi penting',
+        description: 'Aktivitas toko, pengingat atasan, dan peringatan laporan',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        showBadge: true,
       ));
     } catch (e) {
       debugPrint('Notifikasi gagal disiapkan: $e');
@@ -83,6 +102,18 @@ class NotifService {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
     } catch (_) {}
+  }
+
+  /// Apakah notifikasi aplikasi ini diizinkan di pengaturan HP.
+  static Future<bool> aktif() async {
+    try {
+      return await _plugin
+              .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+              ?.areNotificationsEnabled() ??
+          true;
+    } catch (_) {
+      return true;
+    }
   }
 
   static Future<void> cancelAll() async {

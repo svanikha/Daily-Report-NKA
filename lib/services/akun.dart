@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
+import '../screens/izin_notif_screen.dart';
 import '../screens/login_screen.dart';
 import '../widgets/widgets.dart';
 import 'notif_service.dart';
@@ -70,6 +71,7 @@ class AkunMenuButton extends StatelessWidget {
       tooltip: 'Akun',
       onSelected: (v) {
         if (v == 'pw') changePasswordDialog(context);
+        if (v == 'notif') Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IzinNotifScreen()));
         if (v == 'out') logout(context);
       },
       itemBuilder: (_) => [
@@ -78,6 +80,8 @@ class AkunMenuButton extends StatelessWidget {
             enabled: false,
             child: Text('${p.nama}\n${p.roleLabel}${p.isPc ? ' · ${p.toko}' : (p.area.isNotEmpty ? ' · ${p.area}' : '')}'),
           ),
+        const PopupMenuItem(
+            value: 'notif', child: ListTile(leading: Icon(Icons.notifications_active), title: Text('Akses notifikasi'))),
         const PopupMenuItem(value: 'pw', child: ListTile(leading: Icon(Icons.key), title: Text('Ganti password'))),
         const PopupMenuItem(value: 'out', child: ListTile(leading: Icon(Icons.logout), title: Text('Keluar'))),
       ],

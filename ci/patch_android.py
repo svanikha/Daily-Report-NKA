@@ -23,6 +23,8 @@ perms = [
     "android.permission.ACCESS_FINE_LOCATION",
     "android.permission.ACCESS_COARSE_LOCATION",
     "android.permission.REQUEST_INSTALL_PACKAGES",
+    "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+    "android.permission.WAKE_LOCK",
 ]
 perm_xml = "".join(f'    <uses-permission android:name="{p}"/>\n' for p in perms if p not in m)
 m = re.sub(r"(<manifest[^>]*>\s*\n)", lambda x: x.group(1) + perm_xml, m, count=1)
@@ -38,6 +40,15 @@ receivers = """
             </intent-filter>
         </receiver>
 """
+# Push Firebase tanpa channel_id yang dikenal HP -> pakai channel "Notifikasi penting" (prioritas tertinggi)
+fcm_meta = """
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="nka_penting" />
+"""
+if "default_notification_channel_id" not in m:
+    m = m.replace("</application>", fcm_meta + "    </application>", 1)
+
 if "ScheduledNotificationReceiver" not in m:
     m = m.replace("</application>", receivers + "    </application>", 1)
 

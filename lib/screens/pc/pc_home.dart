@@ -7,6 +7,7 @@ import '../../services/push_service.dart';
 import '../../services/session.dart';
 import '../../services/update_service.dart';
 import '../../utils.dart';
+import '../izin_notif_screen.dart';
 import '../toko/hari_toko_view.dart';
 
 /// Beranda PC: laporan hari ini untuk tokonya sendiri.
@@ -30,6 +31,7 @@ class _PcHomeState extends State<PcHome> {
     PushService.register();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) UpdateService.check(context);
+      if (mounted) IzinNotif.tawarkan(context);
     });
   }
 

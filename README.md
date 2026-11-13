@@ -30,6 +30,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 15. `supabase/tahap2d.sql` → urutan brand MS Allbrand (Vivo … Huawei, Others), Honor/Advan dinonaktifkan, Apple hanya 6 jt up.
 16. `supabase/tahap2e.sql` → display wajib foto per kategori (atasan bisa hapus kategori), hapus notifikasi per akun, reset laporan PC per tanggal.
 17. `supabase/tahap2f.sql` → balasan "Siap 👍" PC ke pengingat, ringkasan sell out dashboard, kontribusi per series & tipe.
+18. `supabase/tahap2g.sql` → notifikasi HP prioritas tertinggi (layar kunci, spanduk) + tes notifikasi. Setelah itu deploy ulang edge function **kirim-notif**.
 
 ## Peran
 

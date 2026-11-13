@@ -41,26 +41,83 @@ async function googleAccessToken(sa: ServiceAccount) {
   return value;
 }
 
-type Penerima = { id: string; fcm_token: string };
+// deno-lint-ignore no-explicit-any
+type Profil = { id: string; fcm_token: string; notif_channel?: string | null; [k: string]: any };
 
 /** TL & Trainer area toko + semua PIC NKA, selain pelaku aktivitas. */
-async function penerima(db: SupabaseClient, storeId: number, pelaku: string | null): Promise<Penerima[]> {
+async function penerima(db: SupabaseClient, storeId: number, pelaku: string | null): Promise<Profil[]> {
   const { data: toko } = await db.from("stores").select("area_id").eq("id", storeId).maybeSingle();
   const areaId = toko?.area_id as number | undefined;
+  // select("*"): tetap jalan walau kolom notif_channel belum ada (tahap2g.sql belum dijalankan)
   const { data } = await db
     .from("profiles")
-    .select("id, role, area_id, fcm_token")
+    .select("*")
     .in("role", ["tl", "trainer", "pic"])
     .eq("aktif", true)
     .not("fcm_token", "is", null);
-  return (data ?? [])
+  return ((data ?? []) as Profil[])
     .filter((p) => p.role === "pic" || (areaId != null && p.area_id === areaId))
-    .filter((p) => p.id !== pelaku)
-    .map((p) => ({ id: p.id as string, fcm_token: p.fcm_token as string }));
+    .filter((p) => p.id !== pelaku);
 }
 
 const json = (o: unknown, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
+
+/**
+ * Kirim satu push FCM. Dibuat agar tampil di layar kunci (visibility PUBLIC), sebagai
+ * spanduk/heads-up (prioritas maksimum), dan di bilah notifikasi, walau aplikasi ditutup.
+ * Channel mengikuti HP penerima: aplikasi baru "nka_penting", aplikasi lama "aktivitas".
+ */
+async function kirimPush(
+  db: SupabaseClient,
+  sa: ServiceAccount,
+  p: Profil,
+  judul: string,
+  isi: string,
+  data: Record<string, string>,
+  tag: string,
+): Promise<boolean> {
+  const access = await googleAccessToken(sa);
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: {
+        token: p.fcm_token,
+        notification: { title: judul, body: isi },
+        data,
+        android: {
+          priority: "high",
+          ttl: "86400s",
+          notification: {
+            channel_id: p.notif_channel || "aktivitas",
+            tag,
+            sound: "default",
+            default_sound: true,
+            default_vibrate_timings: true,
+            default_light_settings: true,
+            notification_priority: "PRIORITY_MAX",
+            visibility: "PUBLIC",
+            ticker: judul,
+          },
+        },
+      },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    // Token sudah tidak berlaku (aplikasi di-uninstall / logout): hapus agar tidak dicoba lagi
+    if (res.status === 404 || err.includes("UNREGISTERED")) {
+      await db.from("profiles").update({ fcm_token: null }).eq("id", p.id).eq("fcm_token", p.fcm_token);
+    }
+  }
+  return res.ok;
+}
+
+function serviceAccount(): ServiceAccount | null {
+  const raw = Deno.env.get("FCM_SERVICE_ACCOUNT");
+  return raw ? (JSON.parse(raw) as ServiceAccount) : null;
+}
 
 async function kirimEvent(db: SupabaseClient, eventId: string) {
   const { data: ev } = await db.from("aktivitas").select("*").eq("id", eventId).is("push_pada", null).maybeSingle();
@@ -69,39 +126,20 @@ async function kirimEvent(db: SupabaseClient, eventId: string) {
   // Tandai dulu agar panggilan ganda tidak mengirim push dua kali
   await db.from("aktivitas").update({ push_pada: new Date().toISOString() }).eq("id", eventId);
 
-  const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
-  if (!saRaw) return json({ event: eventId, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
-  const sa = JSON.parse(saRaw) as ServiceAccount;
+  const sa = serviceAccount();
+  if (!sa) return json({ event: eventId, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
   const list = await penerima(db, ev.store_id as number, (ev.oleh as string | null) ?? null);
   if (list.length === 0) return json({ event: eventId, dikirim: 0, catatan: "belum ada HP atasan yang terdaftar" });
 
-  const access = await googleAccessToken(sa);
   let ok = 0;
   for (const p of list) {
-    const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: {
-          token: p.fcm_token,
-          notification: { title: ev.judul, body: ev.isi },
-          data: { jenis: String(ev.jenis), store_id: String(ev.store_id), tanggal: String(ev.tanggal), event_id: String(ev.id) },
-          android: {
-            priority: "high",
-            notification: { channel_id: "aktivitas", sound: "default", tag: String(ev.id) },
-          },
-        },
-      }),
-    });
-    if (res.ok) {
-      ok++;
-    } else {
-      const err = await res.text();
-      // Token sudah tidak berlaku (aplikasi di-uninstall / logout): hapus agar tidak dicoba lagi
-      if (res.status === 404 || err.includes("UNREGISTERED")) {
-        await db.from("profiles").update({ fcm_token: null }).eq("id", p.id).eq("fcm_token", p.fcm_token);
-      }
-    }
+    const terkirim = await kirimPush(db, sa, p, ev.judul, ev.isi, {
+      jenis: String(ev.jenis),
+      store_id: String(ev.store_id),
+      tanggal: String(ev.tanggal),
+      event_id: String(ev.id),
+    }, String(ev.id));
+    if (terkirim) ok++;
   }
   await db.from("aktivitas").update({ push_jumlah: ok }).eq("id", eventId);
   return json({ event: eventId, penerima: list.length, dikirim: ok });
@@ -113,11 +151,10 @@ async function kirimPengingat(db: SupabaseClient, id: string) {
   if (!pg) return json({ pengingat: id, dikirim: 0, catatan: "tidak ada atau sudah dikirim" });
   await db.from("pengingat").update({ push_pada: new Date().toISOString() }).eq("id", id);
 
-  const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
-  if (!saRaw) return json({ pengingat: id, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
-  const sa = JSON.parse(saRaw) as ServiceAccount;
+  const sa = serviceAccount();
+  if (!sa) return json({ pengingat: id, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
 
-  const { data: pc } = await db.from("profiles").select("id, fcm_token").eq("id", pg.pc_id).maybeSingle();
+  const { data: pc } = await db.from("profiles").select("*").eq("id", pg.pc_id).maybeSingle();
   if (!pc?.fcm_token) {
     await db.from("pengingat").update({ push_ok: false }).eq("id", id);
     return json({ pengingat: id, dikirim: 0, catatan: "HP PC belum terdaftar" });
@@ -126,30 +163,26 @@ async function kirimPengingat(db: SupabaseClient, id: string) {
   const peran = dari?.role === "tl" ? "TL" : dari?.role === "trainer" ? "Trainer" : "PIC NKA";
   const judul = `Pengingat dari ${dari?.nama ?? "atasan"} (${peran})`;
 
-  const access = await googleAccessToken(sa);
-  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: {
-        token: pc.fcm_token,
-        notification: { title: judul, body: pg.pesan },
-        data: { jenis: "pengingat", store_id: String(pg.store_id), pengingat_id: String(pg.id) },
-        android: {
-          priority: "high",
-          notification: { channel_id: "aktivitas", sound: "default", tag: String(pg.id) },
-        },
-      },
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    if (res.status === 404 || err.includes("UNREGISTERED")) {
-      await db.from("profiles").update({ fcm_token: null }).eq("id", pc.id).eq("fcm_token", pc.fcm_token);
-    }
-  }
-  await db.from("pengingat").update({ push_ok: res.ok }).eq("id", id);
-  return json({ pengingat: id, dikirim: res.ok ? 1 : 0 });
+  const ok = await kirimPush(db, sa, pc as Profil, judul, pg.pesan, {
+    jenis: "pengingat",
+    store_id: String(pg.store_id),
+    pengingat_id: String(pg.id),
+  }, String(pg.id));
+  await db.from("pengingat").update({ push_ok: ok }).eq("id", id);
+  return json({ pengingat: id, dikirim: ok ? 1 : 0 });
+}
+
+/** Push percobaan ke HP sendiri (tombol "Tes notifikasi"). */
+async function kirimTes(db: SupabaseClient, profileId: string) {
+  const sa = serviceAccount();
+  if (!sa) return json({ tes: profileId, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
+  const { data: p } = await db.from("profiles").select("*").eq("id", profileId).maybeSingle();
+  if (!p?.fcm_token) return json({ tes: profileId, dikirim: 0, catatan: "HP belum terdaftar" });
+  const jam = new Date().toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" });
+  const ok = await kirimPush(db, sa, p as Profil, "Tes notifikasi Daily Report NKA",
+    `Notifikasi HP ${p.nama ?? ""} sudah aktif (${jam} WIB). Cek juga di layar kunci.`,
+    { jenis: "tes" }, `tes-${profileId}`);
+  return json({ tes: profileId, dikirim: ok ? 1 : 0 });
 }
 
 Deno.serve(async (req) => {
@@ -162,6 +195,7 @@ Deno.serve(async (req) => {
     body = {};
   }
   try {
+    if (body?.tes_profile) return await kirimTes(db, String(body.tes_profile));
     if (body?.pengingat_id) return await kirimPengingat(db, String(body.pengingat_id));
     if (!body?.event_id) return json({ error: "event_id wajib" }, 400);
     return await kirimEvent(db, String(body.event_id));

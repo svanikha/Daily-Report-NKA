@@ -11,6 +11,14 @@ import 'session.dart';
 /// Tetap muncul walau aplikasi ditutup.
 class PushService {
   static bool _ready = false;
+  static bool _listening = false;
+
+  /// Token push HP ini (null = belum terdaftar).
+  static String? tokenHp;
+
+  /// Firebase siap dan HP sudah punya token push.
+  static bool get terdaftar => _ready && tokenHp != null;
+  static bool get siap => _ready;
 
   /// Dipasang oleh dashboard admin: membuka halaman Pesan Masuk saat push diketuk.
   static void Function()? onOpenInbox;
@@ -41,11 +49,22 @@ class PushService {
     if (!_ready) return;
     try {
       final fm = FirebaseMessaging.instance;
-      await fm.requestPermission();
+      await fm.requestPermission(alert: true, badge: true, sound: true);
       final token = await fm.getToken();
       if (token != null) await Session.db.rpc('set_fcm_token', params: {'p_token': token});
-      fm.onTokenRefresh.listen((t) => Session.db.rpc('set_fcm_token', params: {'p_token': t}));
-      // Saat aplikasi admin sedang terbuka, push tidak tampil otomatis: tampilkan lewat notifikasi lokal.
+      tokenHp = token;
+      // Beri tahu server bahwa HP ini punya channel "Notifikasi penting" (prioritas tertinggi:
+      // spanduk, layar kunci, getar). Jika server belum mendukung (tahap2g.sql), abaikan.
+      try {
+        await Session.db.rpc('set_notif_channel', params: {'p_channel': NotifService.kanalPenting});
+      } catch (_) {}
+      if (_listening) return;
+      _listening = true;
+      fm.onTokenRefresh.listen((t) {
+        tokenHp = t;
+        Session.db.rpc('set_fcm_token', params: {'p_token': t});
+      });
+      // Saat aplikasi sedang terbuka, push tidak tampil otomatis: tampilkan lewat notifikasi lokal.
       FirebaseMessaging.onMessage.listen((m) {
         final n = m.notification;
         if (n != null) NotifService.showNow(n.title ?? 'Peringatan', n.body ?? '');

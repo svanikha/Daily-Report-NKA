@@ -28,6 +28,8 @@ dependencies:
   firebase_messaging: any
   # Update di dalam aplikasi: unduh APK baru lalu buka layar pasang Android
   ota_update: ^7.1.0
+  # Izin notifikasi & pengecualian penghemat baterai (agar push tampil walau aplikasi ditutup)
+  permission_handler: ^12.0.0
 
 flutter:
   uses-material-design: true
