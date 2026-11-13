@@ -194,6 +194,12 @@ jobs:
             --arg url "$SB_URL/storage/v1/object/public/apk/$CH/$F" \
             '{version_code: $code, version_name: $name, url: $url, catatan: $msg}' > latest.json
           cat latest.json
+          # [tes] di pesan commit: APK hanya diunggah untuk dicoba manual lewat link,
+          # tidak ada akun (PC maupun atasan) yang menerima update otomatis.
+          if git log -1 --format=%B | grep -qi '\[tes\]'; then
+            echo "Mode TES: update otomatis tidak dikirim ke siapa pun. Link: $SB_URL/storage/v1/object/public/apk/$CH/$F" | tee -a ci-log.txt
+            exit 0
+          fi
           # latest_sm.json: selalu diperbarui, dibaca akun TL, Trainer, dan PIC NKA.
           curl -sS --fail-with-body -X POST "$BASE/apk/$CH/latest_sm.json" "${AUTH[@]}" \
             -H "x-upsert: true" -H "cache-control: max-age=60" -H "Content-Type: application/json" \

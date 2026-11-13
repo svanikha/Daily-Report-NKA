@@ -29,6 +29,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 14. `supabase/tahap2c.sql` → MS Allbrand per tanggal: tgl 1 s.d. hari ini bisa diisi/diedit walau sudah lewat, tersimpan sampai dihapus.
 15. `supabase/tahap2d.sql` → urutan brand MS Allbrand (Vivo … Huawei, Others), Honor/Advan dinonaktifkan, Apple hanya 6 jt up.
 16. `supabase/tahap2e.sql` → display wajib foto per kategori (atasan bisa hapus kategori), hapus notifikasi per akun, reset laporan PC per tanggal.
+17. `supabase/tahap2f.sql` → balasan "Siap 👍" PC ke pengingat, ringkasan sell out dashboard, kontribusi per series & tipe.
 
 ## Peran
 
@@ -113,6 +114,7 @@ Erafone Rajawali (Palangkaraya) tidak punya PC; penjualannya diinput TL Palangka
 
 ## Aturan penting (dijaga di server)
 
+- Commit berisi `[tes]`: APK hanya diunggah (link manual), tidak ada akun yang menerima update otomatis. Rilis ke semua: commit tanpa `[tes]` dan berisi `[pc]`.
 - PC: stok, kompetitor, dan display hanya untuk hari ini, sampai **22.30 WIB** (laporan malam; notifikasi PC tidak lapor ke atasan pada 22.30).
 - Penjualan boleh untuk tanggal lampau, tidak boleh tanggal yang akan datang. Harga diambil dari master produk.
 - TL/Trainer bisa melengkapi data harian toko non PC, PC offday, atau PC yang tidak lapor.

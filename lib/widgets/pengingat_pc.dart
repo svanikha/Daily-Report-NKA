@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
+import '../data/nka.dart';
 import '../services/session.dart';
 import '../utils.dart';
 import 'status_online.dart';
@@ -105,6 +106,8 @@ Future<void> showKirimPengingat(
               label: const Text('Kirim pengingat'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
             ),
+            const SizedBox(height: 16),
+            RiwayatPengingat(storeId: storeId),
           ]),
         ),
       ),
@@ -165,10 +168,18 @@ class _PengingatPcCardState extends State<PengingatPcCard> {
     } catch (_) {}
   }
 
-  Future<void> _baca([String? id]) async {
+  /// Balas "Siap 👍" (satu pengingat, atau semua jika id null). Atasan menerima notifikasi.
+  Future<void> _siap([String? id]) async {
+    setState(() => _list = id == null ? [] : _list.where((r) => '${r['id']}' != id).toList());
     try {
-      await Session.db.rpc('baca_pengingat', params: {'p_id': id});
-    } catch (_) {}
+      await Session.db.rpc('respon_pengingat', params: {'p_id': id, 'p_respon': 'Siap'});
+    } catch (_) {
+      // Server belum mendukung balasan (tahap2f.sql): cukup tandai dibaca
+      try {
+        await Session.db.rpc('baca_pengingat', params: {'p_id': id});
+      } catch (_) {}
+    }
+    if (mounted) showMsg(context, 'Balasan "Siap 👍" terkirim ke atasan');
     _load();
   }
 
@@ -185,24 +196,120 @@ class _PengingatPcCardState extends State<PengingatPcCard> {
     return Card(
       color: Colors.deepOrange.withValues(alpha: 0.08),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 4),
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Icon(Icons.notifications_active, color: c),
             const SizedBox(width: 8),
-            Expanded(child: Text('Pengingat dari atasan', style: TextStyle(fontWeight: FontWeight.bold, color: c))),
-            if (_list.length > 1) TextButton(onPressed: () => _baca(), child: const Text('Oke semua')),
+            Expanded(child: Text('Pesan dari atasan', style: TextStyle(fontWeight: FontWeight.bold, color: c))),
+            if (_list.length > 1) TextButton(onPressed: () => _siap(), child: const Text('Siap semua 👍')),
           ]),
           for (final r in _list)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text('${r['pesan']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text('${_dari(r)} · ${waktuSingkat(parseWib('${r['created_at']}'))}'),
-              trailing: TextButton(onPressed: () => _baca('${r['id']}'), child: const Text('Oke')),
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.fromLTRB(10, 8, 6, 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${r['pesan']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Row(children: [
+                  Expanded(
+                    child: Text('${_dari(r)} · ${waktuSingkat(parseWib('${r['created_at']}'))}',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                  FilledButton.tonal(
+                    onPressed: () => _siap('${r['id']}'),
+                    style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+                    child: const Text('Siap 👍'),
+                  ),
+                ]),
+              ]),
             ),
         ]),
       ),
+    );
+  }
+}
+
+/// Atasan: pengingat terakhir ke toko ini beserta status (belum dibaca / dibaca / Siap 👍).
+class RiwayatPengingat extends StatefulWidget {
+  final int storeId;
+  const RiwayatPengingat({super.key, required this.storeId});
+
+  @override
+  State<RiwayatPengingat> createState() => _RiwayatPengingatState();
+}
+
+class _RiwayatPengingatState extends State<RiwayatPengingat> {
+  List<Map<String, dynamic>>? _rows;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = asList(await Session.db
+          .from('pengingat')
+          .select('id,pesan,created_at,dibaca_pada,respon,respon_pada,push_ok,profiles!pengingat_dari_fkey(nama)')
+          .eq('store_id', widget.storeId)
+          .order('created_at', ascending: false)
+          .limit(5));
+      if (mounted) setState(() => _rows = rows);
+    } catch (_) {
+      if (mounted) setState(() => _rows = const []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows;
+    if (rows == null || rows.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Pengingat terakhir', style: TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      for (final r in rows) _row(r),
+    ]);
+  }
+
+  Widget _row(Map<String, dynamic> r) {
+    final String status;
+    final Color c;
+    final IconData ic;
+    if (r['respon'] != null) {
+      status = '${r['respon']} 👍 ${r['respon_pada'] == null ? '' : jamMenit(parseWib('${r['respon_pada']}'))}';
+      c = Colors.green.shade700;
+      ic = Icons.done_all;
+    } else if (r['dibaca_pada'] != null) {
+      status = 'Dibaca';
+      c = Colors.blue.shade700;
+      ic = Icons.done_all;
+    } else if (r['push_ok'] == false) {
+      status = 'HP PC belum terdaftar';
+      c = Colors.orange.shade800;
+      ic = Icons.phonelink_off;
+    } else {
+      status = 'Terkirim';
+      c = Colors.grey.shade600;
+      ic = Icons.done;
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(ic, size: 16, color: c),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${r['pesan']}', style: const TextStyle(fontSize: 12.5), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text('${asMap(r['profiles'])['nama'] ?? ''} · ${waktuSingkat(parseWib('${r['created_at']}'))}',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          ]),
+        ),
+        const SizedBox(width: 6),
+        Text(status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c)),
+      ]),
     );
   }
 }

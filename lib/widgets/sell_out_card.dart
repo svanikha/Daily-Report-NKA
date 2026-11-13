@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/nka.dart';
+import '../services/session.dart';
 import '../utils.dart';
 
 /// Timegone: tanggal / jumlah hari di bulan itu (10/30 = 33%).
@@ -43,108 +44,234 @@ class TimegoneBar extends StatelessWidget {
   }
 }
 
-/// Ringkasan sell-out toko/PC: capai unit & value, persentase, kekurangan per hari kerja,
-/// tipe fokus, dan IoT. Persentase hijau jika sudah di atas timegone.
+/// Rupiah ringkas untuk kartu: Rp45,2 jt / Rp1,25 M.
+String rupiahSingkat(num v) {
+  final a = v.abs();
+  String f(double x, int d) => x.toStringAsFixed(d).replaceAll('.', ',').replaceAll(RegExp(r',0+$'), '');
+  if (a >= 1e9) return 'Rp${f(v / 1e9, 2)} M';
+  if (a >= 1e6) return 'Rp${f(v / 1e6, 1)} jt';
+  return rupiah(v);
+}
+
+/// Ringkasan sell-out: kotak-kotak capaian (unit HP, value HP, tipe fokus, IoT) dengan
+/// persentase target (hijau jika di atas timegone), tambahan hari ini, dan kebutuhan per hari kerja.
 class SellOutCard extends StatelessWidget {
   final Map<String, dynamic> hari;
   final Map<String, dynamic> bulan;
   final Map<String, dynamic> target;
   final HariKerja hk;
-  const SellOutCard({super.key, required this.hari, required this.bulan, required this.target, required this.hk});
+
+  /// Judul tambahan, misal "Semua toko area Sampit".
+  final String? judul;
+  const SellOutCard({super.key, required this.hari, required this.bulan, required this.target, required this.hk, this.judul});
 
   @override
   Widget build(BuildContext context) {
-    final tUnit = toNum(target['unit']);
-    final tValue = toNum(target['value']);
-    final tIot = toNum(target['iot']);
-    final unit = toNum(bulan['unit']);
-    final value = toNum(bulan['value']);
-    final iot = toNum(bulan['iot']);
+    String unit(num v) => '${angka(v)} unit';
     return Column(children: [
-      _box(context, 'SELL OUT HP', Icons.smartphone, [
-        _row('Sell out hari ini', '${angka(toNum(hari['unit']))} unit · ${rupiah(toNum(hari['value']))}'),
-        _capai('Capai unit', unit, tUnit, (v) => '${angka(v)} unit'),
-        _capai('Capai value', value, tValue, rupiah),
-        _kurang('Kekurangan unit / hari kerja', tUnit, unit, (v) => '${angka(v.ceil())} unit'),
-        _kurang('Kekurangan value / hari kerja', tValue, value, (v) => rupiah(v.round())),
-        const Divider(height: 16),
-        _capai('Tipe fokus A7 Pro', toNum(bulan['fokus_a7pro']), toNum(target['fokus_a7pro']), (v) => '${angka(v)} unit'),
-        _kurang('Kekurangan A7 Pro / hari kerja', toNum(target['fokus_a7pro']), toNum(bulan['fokus_a7pro']),
-            (v) => '${angka(v.ceil())} unit'),
-        _capai('Tipe fokus Reno 16', toNum(bulan['fokus_reno16']), toNum(target['fokus_reno16']), (v) => '${angka(v)} unit'),
-        _kurang('Kekurangan Reno 16 / hari kerja', toNum(target['fokus_reno16']), toNum(bulan['fokus_reno16']),
-            (v) => '${angka(v.ceil())} unit'),
-      ]),
-      _box(context, 'SELL OUT IoT', Icons.watch, [
-        _row('Sell out hari ini', '${angka(toNum(hari['iot']))} unit · ${rupiah(toNum(hari['iot_value']))}'),
-        _capai('Capai unit', iot, tIot, (v) => '${angka(v)} unit'),
-        _row('Capai value', rupiah(toNum(bulan['iot_value']))),
-        _kurang('Kekurangan unit / hari kerja', tIot, iot, (v) => '${angka(v.ceil())} unit'),
-      ]),
+      _section(
+        context,
+        'SELL OUT HP',
+        Icons.smartphone,
+        'Hari ini ${angka(toNum(hari['unit']))} unit · ${rupiahSingkat(toNum(hari['value']))}',
+        [
+          _Metrik('Unit HP', toNum(bulan['unit']), toNum(target['unit']), toNum(hari['unit']), unit, hk),
+          _Metrik('Value HP', toNum(bulan['value']), toNum(target['value']), toNum(hari['value']), rupiahSingkat, hk),
+          _Metrik('Fokus A7 Pro', toNum(bulan['fokus_a7pro']), toNum(target['fokus_a7pro']), toNum(hari['fokus_a7pro']),
+              unit, hk),
+          _Metrik('Fokus Reno 16', toNum(bulan['fokus_reno16']), toNum(target['fokus_reno16']),
+              toNum(hari['fokus_reno16']), unit, hk),
+        ],
+      ),
+      _section(
+        context,
+        'SELL OUT IoT',
+        Icons.watch,
+        'Hari ini ${angka(toNum(hari['iot']))} unit · ${rupiahSingkat(toNum(hari['iot_value']))}',
+        [
+          _Metrik('Unit IoT', toNum(bulan['iot']), toNum(target['iot']), toNum(hari['iot']), unit, hk),
+          _Metrik('Value IoT', toNum(bulan['iot_value']), 0, toNum(hari['iot_value']), rupiahSingkat, hk),
+        ],
+      ),
     ]);
   }
 
-  Widget _box(BuildContext context, String title, IconData icon, List<Widget> children) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-            ]),
-            const SizedBox(height: 6),
-            ...children,
+  Widget _section(BuildContext context, String title, IconData icon, String sub, List<_Metrik> tiles) {
+    final c = Theme.of(context).colorScheme.primary;
+    final rows = <Widget>[];
+    for (var i = 0; i < tiles.length; i += 2) {
+      rows.add(Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: tiles[i]),
+            const SizedBox(width: 8),
+            Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox()),
           ]),
         ),
-      );
-
-  Widget _row(String label, String value, {Color? color}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Text(label)),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w600, color: color)),
-          ),
+      ));
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 18, color: c),
+            const SizedBox(width: 6),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+            if (judul != null) ...[
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text('· $judul', overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 2),
+          Text(sub, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+          ...rows,
         ]),
-      );
+      ),
+    );
+  }
+}
 
-  /// Capai bulan ini vs target + persentase. Hijau jika >= timegone.
-  Widget _capai(String label, num capai, num target, String Function(num) fmt) {
-    if (target <= 0) return _row(label, '${fmt(capai)} (target belum diatur)');
-    final p = capai / target * 100;
-    final c = p >= hk.timegone ? Colors.green.shade700 : Colors.red.shade700;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+/// Satu kotak capaian.
+class _Metrik extends StatelessWidget {
+  final String label;
+  final num capai;
+  final num target;
+  final num hariIni;
+  final String Function(num) fmt;
+  final HariKerja hk;
+  const _Metrik(this.label, this.capai, this.target, this.hariIni, this.fmt, this.hk);
+
+  @override
+  Widget build(BuildContext context) {
+    final adaTarget = target > 0;
+    final p = adaTarget ? capai / target * 100 : 0.0;
+    final aman = p >= hk.timegone;
+    final c = !adaTarget ? Colors.blueGrey : (aman ? Colors.green.shade700 : Colors.red.shade700);
+
+    String bawah;
+    Color warnaBawah;
+    if (!adaTarget) {
+      bawah = 'Target belum diatur';
+      warnaBawah = Colors.grey.shade600;
+    } else if (capai >= target) {
+      bawah = 'Target tercapai ✓';
+      warnaBawah = Colors.green.shade700;
+    } else if (hk.sisaHariKerja <= 0) {
+      bawah = 'Kurang ${fmt(target - capai)}';
+      warnaBawah = Colors.red.shade700;
+    } else {
+      final ph = hk.perHari(target, capai);
+      bawah = 'Perlu ${fmt(ph.ceil())}/hari';
+      warnaBawah = aman ? Colors.green.shade700 : Colors.red.shade700;
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c.withValues(alpha: 0.25)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: Text(label)),
-          Text('${fmt(capai)} / ${fmt(target)}', style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 44,
-            child: Text('${p.toStringAsFixed(0)}%', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, color: c)),
+          Expanded(
+            child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w600)),
           ),
+          if (adaTarget)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(8)),
+              child: Text('${p.toStringAsFixed(0)}%',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
         ]),
-        const SizedBox(height: 3),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(fmt(capai), style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: c)),
+        ),
+        Text(adaTarget ? 'dari ${fmt(target)}' : 'bulan ini',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+        const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
           child: LinearProgressIndicator(
-            value: (p / 100).clamp(0.0, 1.0).toDouble(),
+            value: adaTarget ? (p / 100).clamp(0.0, 1.0).toDouble() : 0,
             minHeight: 5,
             color: c,
             backgroundColor: Colors.grey.shade200,
           ),
         ),
+        const SizedBox(height: 5),
+        Text(bawah, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: warnaBawah)),
+        if (hariIni > 0)
+          Text('+${fmt(hariIni)} hari ini', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
       ]),
     );
   }
+}
 
-  Widget _kurang(String label, num target, num capai, String Function(num) fmt) {
-    if (target <= 0) return const SizedBox.shrink();
-    if (capai >= target) return _row(label, 'Target tercapai', color: Colors.green.shade700);
-    if (hk.sisaHariKerja <= 0) return _row(label, 'Kurang ${fmt(target - capai)} (tidak ada hari kerja)', color: Colors.red.shade700);
-    return _row(label, '${fmt(hk.perHari(target, capai))} (${hk.sisaHariKerja} hari)', color: Colors.red.shade700);
+/// Dashboard atasan: memuat ringkasan sell out (RPC ringkasan_sellout) untuk satu toko atau
+/// semua toko di cakupan akun, lalu menampilkannya dengan SellOutCard.
+class RingkasanSellOut extends StatefulWidget {
+  final int? storeId;
+  final DateTime tanggal;
+  final String? judul;
+
+  /// Ditampilkan jika fungsi server belum tersedia.
+  final Widget? cadangan;
+
+  /// Berubah setiap halaman induk memuat ulang: data dimuat ulang tanpa berkedip.
+  final int rev;
+  const RingkasanSellOut(
+      {super.key, required this.storeId, required this.tanggal, this.judul, this.cadangan, this.rev = 0});
+
+  @override
+  State<RingkasanSellOut> createState() => _RingkasanSellOutState();
+}
+
+class _RingkasanSellOutState extends State<RingkasanSellOut> {
+  Map<String, dynamic>? _r;
+  bool _gagal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant RingkasanSellOut old) {
+    super.didUpdateWidget(old);
+    if (old.rev != widget.rev) _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final r = asMap(await Session.db
+          .rpc('ringkasan_sellout', params: {'p_store': widget.storeId, 'p_tanggal': ymd(widget.tanggal)}));
+      if (mounted) setState(() => _r = r);
+    } catch (_) {
+      if (mounted) setState(() => _gagal = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_gagal) return widget.cadangan ?? const SizedBox.shrink();
+    final r = _r;
+    if (r == null) return const Card(child: Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()));
+    return SellOutCard(
+      hari: asMap(r['hari']),
+      bulan: asMap(r['bulan']),
+      target: asMap(r['target']),
+      hk: HariKerja.dari(widget.tanggal),
+      judul: widget.judul,
+    );
   }
 }

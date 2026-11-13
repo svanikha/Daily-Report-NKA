@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/nka.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/widgets.dart';
 import 'sale_form.dart';
 
@@ -108,6 +109,15 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
             const Text('Penjualan OPPO'),
             Text('${t.toko} · ${tglPendek(t.tanggal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
           ]),
+          actions: [
+            IconButton(
+              tooltip: 'Riwayat per series & tipe',
+              icon: const Icon(Icons.history),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => RiwayatPenjualanScreen(storeId: t.storeId, tanggal: t.tanggal),
+              )),
+            ),
+          ],
         ),
         bottomNavigationBar: !bolehJual
             ? null

@@ -5,6 +5,7 @@ import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/estimasi_gaji.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/widgets.dart';
@@ -127,6 +128,11 @@ class HariTokoViewState extends State<HariTokoView> {
             pcNama: t.pcNama,
           ),
         KalenderPenjualan(key: ValueKey('kal-${t.storeId}'), selected: t.tanggal, storeId: t.storeId),
+        KontribusiTipe(
+          key: ValueKey('kt-${t.storeId}-${t.tgl}-${penjualan.length}'),
+          storeId: t.storeId,
+          tanggal: t.tanggal,
+        ),
         const SectionHeader('Laporan harian'),
         _tile(
           icon: Icons.inventory_2,

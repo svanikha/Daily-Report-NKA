@@ -23,9 +23,10 @@ const _jenisInfo = {
   'istirahat_telat': (Icons.alarm, Color(0xFFC62828), 'Istirahat'),
   'sosmed': (Icons.campaign, Color(0xFFAD1457), 'Activity'),
   'leasing': (Icons.fact_check, Color(0xFF3949AB), 'Activity'),
+  'pengingat': (Icons.thumb_up, Color(0xFF2E7D32), 'Pengingat'),
 };
 
-const _filters = ['Semua', 'Penjualan', 'Istirahat', 'Activity', 'Stok', 'MS Allbrand', 'Display', 'Laporan'];
+const _filters = ['Semua', 'Penjualan', 'Istirahat', 'Activity', 'Stok', 'MS Allbrand', 'Display', 'Laporan', 'Pengingat'];
 
 /// Aktivitas semua toko di cakupan akun (TL: areanya, Trainer: areanya, PIC: semua),
 /// bertambah langsung tanpa refresh. Ketuk untuk membuka laporan toko pada tanggal itu.

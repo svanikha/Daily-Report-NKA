@@ -12,6 +12,7 @@ import '../../services/update_service.dart';
 import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/kontribusi_bayar.dart';
+import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
 import '../../widgets/status_online.dart';
@@ -42,6 +43,7 @@ class _AtasanHomeState extends State<AtasanHome> {
   List<Map<String, dynamic>> _toko = [];
   int _unread = 0;
   int? _filterStore; // null = semua toko di cakupan
+  int _rev = 0; // naik setiap data dimuat ulang (kartu ringkasan ikut memuat ulang)
   RealtimeChannel? _channel;
   Timer? _refresh;
   final Map<String, StatusOnline> _online = {}; // pc_id -> status online
@@ -121,7 +123,10 @@ class _AtasanHomeState extends State<AtasanHome> {
     } catch (e) {
       _error = errMsg(e);
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) setState(() {
+      _loading = false;
+      _rev++;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -216,6 +221,14 @@ class _AtasanHomeState extends State<AtasanHome> {
           ),
         ),
       TimegoneBar(hk: hk, tampilSisa: false),
+      RingkasanSellOut(
+        key: ValueKey('so-$_filterStore-${ymd(_tanggal)}'),
+        rev: _rev,
+        storeId: _filterStore,
+        tanggal: _tanggal,
+        judul: namaFilter ?? (me.isPic ? 'semua toko' : 'area ${me.area}'),
+        cadangan: _progressLama(unitBulan, targetUnit, valueBulan, targetValue),
+      ),
       KalenderPenjualan(
         key: const ValueKey('kal-atasan'),
         selected: _tanggal,
@@ -226,6 +239,7 @@ class _AtasanHomeState extends State<AtasanHome> {
         },
       ),
       KontribusiBayar(tanggal: _tanggal, storeId: _filterStore),
+      KontribusiTipe(key: ValueKey('kt-$_filterStore-${ymd(_tanggal)}'), storeId: _filterStore, tanggal: _tanggal),
       Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 8),
         child: Text('Laporan ${hariTgl(_tanggal)}${namaFilter == null ? '' : ' · $namaFilter'}',
@@ -242,8 +256,23 @@ class _AtasanHomeState extends State<AtasanHome> {
           icon: Icons.pie_chart,
         ),
       ]),
-      Card(
-        margin: const EdgeInsets.only(top: 8),
+    ];
+
+    String? area;
+    for (final t in list) {
+      if (t['area'] != area) {
+        area = '${t['area']}';
+        out.add(SectionHeader('Area $area'));
+      }
+      out.add(_tokoCard(t, lewatBatas));
+    }
+    if (_toko.isEmpty) out.add(const EmptyState(text: 'Tidak ada toko di cakupan akun ini', icon: Icons.store));
+
+    return RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(12), children: out));
+  }
+
+  /// Tampilan lama capaian unit & value (dipakai jika tahap2f.sql belum dijalankan).
+  Widget _progressLama(num unitBulan, num targetUnit, num valueBulan, num targetValue) => Card(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Column(children: [
@@ -265,21 +294,7 @@ class _AtasanHomeState extends State<AtasanHome> {
             ),
           ]),
         ),
-      ),
-    ];
-
-    String? area;
-    for (final t in list) {
-      if (t['area'] != area) {
-        area = '${t['area']}';
-        out.add(SectionHeader('Area $area'));
-      }
-      out.add(_tokoCard(t, lewatBatas));
-    }
-    if (_toko.isEmpty) out.add(const EmptyState(text: 'Tidak ada toko di cakupan akun ini', icon: Icons.store));
-
-    return RefreshIndicator(onRefresh: _load, child: ListView(padding: const EdgeInsets.all(12), children: out));
-  }
+      );
 
   Widget _tokoCard(Map<String, dynamic> t, bool lewatBatas) {
     final libur = t['libur'] as String?;
