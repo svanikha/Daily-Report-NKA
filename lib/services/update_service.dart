@@ -54,15 +54,30 @@ class UpdateService {
     if (!force && _lastCheck != null && now.difference(_lastCheck!) < const Duration(minutes: 2)) return;
     _lastCheck = now;
     try {
-      // TL, Trainer & PIC membaca latest_sm.json (selalu terbaru).
-      // PC membaca latest.json, yang hanya diperbarui untuk rilis khusus PC ([pc] di pesan commit).
-      final file = (Session.current?.usesAdminHome ?? false) ? 'latest_sm.json' : 'latest.json';
-      final uri = Uri.parse('${AppConfig.supabaseUrl}/storage/v1/object/public/apk/$channel/$file'
-          '?t=${now.millisecondsSinceEpoch}');
-      final res = await http.get(uri).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return;
-      final m = jsonDecode(res.body) as Map<String, dynamic>;
-      final code = (m['version_code'] as num?)?.toInt() ?? 0;
+      // TL & Trainer membaca latest_sm.json. PC membaca latest.json ([pc] di pesan commit).
+      // PIC NKA membaca latest_sm.json DAN latest_pic.json (versi uji khusus PIC, [tes] di pesan commit),
+      // lalu memakai yang paling baru.
+      final me = Session.current;
+      final files = (me?.isPic ?? false)
+          ? ['latest_pic.json', 'latest_sm.json']
+          : [(me?.usesAdminHome ?? false) ? 'latest_sm.json' : 'latest.json'];
+      Map<String, dynamic>? m;
+      var code = 0;
+      for (final file in files) {
+        try {
+          final uri = Uri.parse('${AppConfig.supabaseUrl}/storage/v1/object/public/apk/$channel/$file'
+              '?t=${now.millisecondsSinceEpoch}');
+          final res = await http.get(uri).timeout(const Duration(seconds: 10));
+          if (res.statusCode != 200) continue;
+          final x = jsonDecode(res.body) as Map<String, dynamic>;
+          final c = (x['version_code'] as num?)?.toInt() ?? 0;
+          if (c > code) {
+            code = c;
+            m = x;
+          }
+        } catch (_) {}
+      }
+      if (m == null) return;
       final url = '${m['url'] ?? ''}';
       if (code <= buildNumber || url.isEmpty) return;
       final ctx = navigatorKey.currentState?.overlay?.context;

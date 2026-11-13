@@ -114,7 +114,7 @@ Erafone Rajawali (Palangkaraya) tidak punya PC; penjualannya diinput TL Palangka
 
 ## Aturan penting (dijaga di server)
 
-- Commit berisi `[tes]`: APK hanya diunggah (link manual), tidak ada akun yang menerima update otomatis. Rilis ke semua: commit tanpa `[tes]` dan berisi `[pc]`.
+- Commit berisi `[tes]`: update otomatis hanya untuk akun PIC NKA (latest_pic.json). Rilis ke semua: commit tanpa `[tes]` dan berisi `[pc]`.
 - PC: stok, kompetitor, dan display hanya untuk hari ini, sampai **22.30 WIB** (laporan malam; notifikasi PC tidak lapor ke atasan pada 22.30).
 - Penjualan boleh untuk tanggal lampau, tidak boleh tanggal yang akan datang. Harga diambil dari master produk.
 - TL/Trainer bisa melengkapi data harian toko non PC, PC offday, atau PC yang tidak lapor.
