@@ -23,8 +23,14 @@ class PushService {
   /// Dipasang oleh dashboard admin: membuka halaman Pesan Masuk saat push diketuk.
   static void Function()? onOpenInbox;
 
+  /// Pesan error terakhir pendaftaran push (ditampilkan di layar Akses notifikasi).
+  static String? galat;
+
   static Future<void> init() async {
-    if (!FirebaseConfig.isConfigured) return;
+    if (!FirebaseConfig.isConfigured) {
+      galat = 'Konfigurasi Firebase kosong di build ini';
+      return;
+    }
     try {
       await Firebase.initializeApp(
         options: const FirebaseOptions(
@@ -36,7 +42,8 @@ class PushService {
       );
       _ready = true;
     } catch (e) {
-      debugPrint('Firebase gagal disiapkan: $e');
+      galat = 'Firebase gagal disiapkan: $e';
+      debugPrint(galat);
     }
   }
 
@@ -50,9 +57,25 @@ class PushService {
     try {
       final fm = FirebaseMessaging.instance;
       await fm.requestPermission(alert: true, badge: true, sound: true);
-      final token = await fm.getToken();
-      if (token != null) await Session.db.rpc('set_fcm_token', params: {'p_token': token});
+      String? token;
+      try {
+        token = await fm.getToken().timeout(const Duration(seconds: 20));
+      } catch (e) {
+        galat = 'Gagal mengambil token Firebase: $e';
+        rethrow;
+      }
+      if (token == null) {
+        galat = 'Firebase tidak memberi token (null)';
+        return;
+      }
+      try {
+        await Session.db.rpc('set_fcm_token', params: {'p_token': token});
+      } catch (e) {
+        galat = 'Token didapat tetapi gagal disimpan ke server: $e';
+        rethrow;
+      }
       tokenHp = token;
+      galat = null;
       // Beri tahu server bahwa HP ini punya channel "Notifikasi penting" (prioritas tertinggi:
       // spanduk, layar kunci, getar). Jika server belum mendukung (tahap2g.sql), abaikan.
       try {
@@ -74,7 +97,8 @@ class PushService {
       final initial = await fm.getInitialMessage();
       if (initial != null) onOpenInbox?.call();
     } catch (e) {
-      debugPrint('Gagal mendaftarkan push admin: $e');
+      galat ??= 'Gagal mendaftarkan push: $e';
+      debugPrint(galat);
     }
   }
 

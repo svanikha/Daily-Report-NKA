@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../config.dart';
 import '../services/notif_service.dart';
 import '../services/push_service.dart';
 import '../services/session.dart';
@@ -63,6 +64,10 @@ class _IzinNotifScreenState extends State<IzinNotifScreen> with WidgetsBindingOb
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _cek();
+    // Coba daftarkan HP ke Firebase saat layar dibuka, lalu tampilkan hasilnya di diagnosa
+    PushService.register().then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -234,6 +239,8 @@ class _IzinNotifScreenState extends State<IzinNotifScreen> with WidgetsBindingOb
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
+                    _diagnosa(),
+                    const SizedBox(height: 8),
                     Row(children: [
                       Expanded(
                         child: FilledButton.icon(
@@ -256,6 +263,43 @@ class _IzinNotifScreenState extends State<IzinNotifScreen> with WidgetsBindingOb
               ),
             ]),
     );
+  }
+
+  /// Diagnosa pendaftaran push: Firebase siap, token HP, dan pesan error asli (bisa disalin).
+  Widget _diagnosa() {
+    final ok = PushService.terdaftar;
+    final c = ok ? Colors.green.shade700 : Colors.red.shade700;
+    final teks = [
+      'Firebase: ${PushService.siap ? 'siap' : 'TIDAK SIAP'} (project ${FirebaseConfig.projectId.isEmpty ? '-' : FirebaseConfig.projectId}, '
+          'sender ${FirebaseConfig.messagingSenderId.isEmpty ? '-' : FirebaseConfig.messagingSenderId})',
+      'Token HP: ${ok ? 'ada (${PushService.tokenHp!.substring(0, 12)}…)' : 'TIDAK ADA'}',
+      if (PushService.galat != null) 'Error: ${PushService.galat}',
+    ].join('\n');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(8)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SelectableText(teks, style: TextStyle(fontSize: 11.5, color: c, fontFamily: 'monospace')),
+        if (!ok)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _daftarUlang ? null : _daftar,
+              icon: busyIcon(_daftarUlang, Icons.refresh),
+              label: const Text('Daftarkan ulang HP'),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  bool _daftarUlang = false;
+
+  Future<void> _daftar() async {
+    setState(() => _daftarUlang = true);
+    await PushService.register();
+    if (mounted) setState(() => _daftarUlang = false);
   }
 
   Widget _langkah(int no, String judul, String ket, bool? ok, String tombol, Future<void> Function() aksi,
