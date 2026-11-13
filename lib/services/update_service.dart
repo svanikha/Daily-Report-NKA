@@ -61,7 +61,7 @@ class UpdateService {
       final files = (me?.isPic ?? false)
           ? ['latest_pic.json', 'latest_sm.json']
           : [(me?.usesAdminHome ?? false) ? 'latest_sm.json' : 'latest.json'];
-      Map<String, dynamic>? m;
+      Map<String, dynamic>? terbaru;
       var code = 0;
       for (final file in files) {
         try {
@@ -73,11 +73,12 @@ class UpdateService {
           final c = (x['version_code'] as num?)?.toInt() ?? 0;
           if (c > code) {
             code = c;
-            m = x;
+            terbaru = x;
           }
         } catch (_) {}
       }
-      if (m == null) return;
+      if (terbaru == null) return;
+      final m = terbaru;
       final url = '${m['url'] ?? ''}';
       if (code <= buildNumber || url.isEmpty) return;
       final ctx = navigatorKey.currentState?.overlay?.context;
