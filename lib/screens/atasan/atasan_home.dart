@@ -29,6 +29,7 @@ import 'export_screen.dart';
 import 'kpi_screen.dart';
 import 'offday_screen.dart';
 import 'pesan_screen.dart';
+import 'storage_screen.dart';
 import 'produk_screen.dart';
 import 'target_screen.dart';
 import 'toko_detail_screen.dart';
@@ -556,6 +557,16 @@ class _AtasanHomeState extends State<AtasanHome> {
             subtitle: const Text('Reset password TL dan Trainer yang lupa password'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => go(const AkunAtasanScreen()),
+          ),
+        ),
+      if (me.isPic)
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.storage),
+            title: const Text('Penyimpanan server'),
+            subtitle: const Text('Pemakaian storage, hapus otomatis foto > 30 hari / di atas 80%'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const StorageScreen()),
           ),
         ),
       Card(

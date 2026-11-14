@@ -207,6 +207,93 @@ async function kirimPesan(db: SupabaseClient, id: string) {
   return json({ pesan: id, dikirim: ok ? 1 : 0 });
 }
 
+type Objek = { name: string; size: number };
+
+/**
+ * Pembersihan penyimpanan (dipanggil cron harian 02.00 WIB atau tombol PIC):
+ * foto bukti > N hari, APK lama (simpan 5 terbaru per saluran), dan jika masih >= 80% kuota,
+ * foto tertua dihapus sampai < 70% (foto 7 hari terakhir tetap disimpan).
+ */
+async function bersihkan(db: SupabaseClient, token: string, pemicu: string) {
+  const { data: set } = await db.from("pengaturan").select("*");
+  const p: Record<string, string> = Object.fromEntries((set ?? []).map((r) => [r.kunci, r.nilai]));
+  if (!token || token !== p.bersih_token) return json({ error: "kunci pembersihan salah" }, 403);
+  const kuota = Number(p.kuota_storage_bytes || 1073741824);
+  const umur = Number(p.umur_foto_hari || 30);
+  const batas = Number(p.batas_persen || 80);
+  const target = Number(p.target_persen || 70);
+  const simpanApk = Number(p.simpan_apk || 5);
+
+  const ukur = async () => {
+    const { data } = await db.rpc("ukuran_storage");
+    return Number(data?.total ?? 0);
+  };
+  const sebelum = await ukur();
+  let foto = 0, apk = 0, bebas = 0;
+  const catatan: string[] = [];
+
+  const hapus = async (bucket: string, rows: Objek[]) => {
+    for (let i = 0; i < rows.length; i += 100) {
+      const chunk = rows.slice(i, i + 100);
+      const names = chunk.map((r) => r.name);
+      const { error } = await db.storage.from(bucket).remove(names);
+      if (error) {
+        catatan.push(`${bucket}: ${error.message}`);
+        continue;
+      }
+      bebas += chunk.reduce((a, r) => a + Number(r.size || 0), 0);
+      if (bucket === "bukti") {
+        await db.from("photos").delete().in("path", names);
+        foto += names.length;
+      } else {
+        apk += names.length;
+      }
+    }
+  };
+
+  // 1. Foto bukti lebih tua dari N hari
+  const sebelumTgl = new Date(Date.now() - umur * 86400000).toISOString();
+  for (let n = 0; n < 30; n++) {
+    const { data } = await db.rpc("objek_storage", { p_bucket: "bukti", p_sebelum: sebelumTgl, p_limit: 1000 });
+    const rows = (data ?? []) as Objek[];
+    if (rows.length === 0) break;
+    await hapus("bukti", rows);
+    if (rows.length < 1000) break;
+  }
+
+  // 2. APK lama
+  const { data: apkLama } = await db.rpc("apk_lama", { p_simpan: simpanApk });
+  if ((apkLama ?? []).length > 0) await hapus("apk", apkLama as Objek[]);
+
+  // 3. Masih >= batas % kuota: hapus foto tertua (simpan 7 hari terakhir) sampai < target %
+  let sekarang = await ukur();
+  if (sekarang >= (kuota * batas) / 100) {
+    const tujuh = new Date(Date.now() - 7 * 86400000).toISOString();
+    for (let n = 0; n < 50 && sekarang > (kuota * target) / 100; n++) {
+      const { data } = await db.rpc("objek_storage", { p_bucket: "bukti", p_sebelum: tujuh, p_limit: 200 });
+      const rows = (data ?? []) as Objek[];
+      if (rows.length === 0) {
+        catatan.push("masih di atas batas, tetapi tinggal foto 7 hari terakhir");
+        break;
+      }
+      await hapus("bukti", rows);
+      sekarang = await ukur();
+    }
+  }
+
+  const sesudah = await ukur();
+  await db.from("storage_bersih_log").insert({
+    pemicu,
+    foto_dihapus: foto,
+    apk_dihapus: apk,
+    bytes_dibebaskan: bebas,
+    ukuran_sebelum: sebelum,
+    ukuran_sesudah: sesudah,
+    catatan: catatan.join("; ") || null,
+  });
+  return json({ foto, apk, bebas, sebelum, sesudah, kuota });
+}
+
 /** Push percobaan ke HP sendiri (tombol "Tes notifikasi"). */
 async function kirimTes(db: SupabaseClient, profileId: string) {
   const sa = serviceAccount();
@@ -230,6 +317,7 @@ Deno.serve(async (req) => {
     body = {};
   }
   try {
+    if (body?.bersihkan) return await bersihkan(db, String(body.bersihkan), String(body.pemicu ?? "manual"));
     if (body?.tes_profile) return await kirimTes(db, String(body.tes_profile));
     if (body?.respon_pengingat) return await kirimRespon(db, String(body.respon_pengingat));
     if (body?.pesan_id) return await kirimPesan(db, String(body.pesan_id));
