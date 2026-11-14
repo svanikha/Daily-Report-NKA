@@ -18,10 +18,12 @@ import '../../widgets/sell_out_card.dart';
 import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
 import '../izin_notif_screen.dart';
+import '../riwayat_screens.dart';
 import 'akun_atasan_screen.dart';
 import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
 import 'checklist_screen.dart';
+import 'export_screen.dart';
 import 'kpi_screen.dart';
 import 'offday_screen.dart';
 import 'produk_screen.dart';
@@ -405,6 +407,43 @@ class _AtasanHomeState extends State<AtasanHome> {
     final bisaAtur = me.isPic || me.isTrainer;
     void go(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     return ListView(padding: const EdgeInsets.all(12), children: [
+      const SectionHeader('Riwayat & data PC'),
+      Card(
+        child: Column(children: [
+          ListTile(
+            leading: const Icon(Icons.fact_check),
+            title: const Text('Riwayat cek limit'),
+            subtitle: const Text('Semua pengajuan cek limit leasing PC'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const RiwayatCekLimitScreen()),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.free_breakfast),
+            title: const Text('Riwayat istirahat'),
+            subtitle: const Text('Jam keluar & kembali, keterlambatan, dan selfie'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const RiwayatIstirahatScreen()),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.photo_library),
+            title: const Text('Galeri foto PC'),
+            subtitle: const Text('Foto display, istirahat, sosmed, dan cek limit'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const GaleriFotoScreen()),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.table_chart),
+            title: const Text('Export data Excel'),
+            subtitle: const Text('Sell out, IoT, tipe fokus, stok, MS Allbrand, cek limit (pilih tanggal)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => go(const ExportScreen()),
+          ),
+        ]),
+      ),
+      const SectionHeader('Pengaturan'),
       if (!bisaAtur)
         const InfoBanner('Jadwal offday, produk & harga, dan target diatur oleh Trainer dan PIC NKA.'),
       if (bisaAtur) ...[

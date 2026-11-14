@@ -4,6 +4,7 @@ import '../../data/nka.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/estimasi_gaji.dart';
+import '../../widgets/insentif_harian.dart';
 import '../../widgets/kalender_penjualan.dart';
 import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
@@ -14,6 +15,7 @@ import 'activity_screen.dart';
 import 'display_screen.dart';
 import 'ms_allbrand_screen.dart';
 import 'laporan_screen.dart';
+import 'penjualan_bulan_screen.dart';
 import 'penjualan_screen.dart';
 import 'stok_screen.dart';
 
@@ -35,6 +37,7 @@ class HariTokoViewState extends State<HariTokoView> {
   bool _sending = false;
   String? _error;
   Map<String, dynamic> _r = {};
+  int _rev = 0; // naik setiap dimuat ulang: kartu kalender, kontribusi, insentif ikut memuat ulang
 
   TokoHari get t => widget.toko.denganLibur(_r['libur'] as String? ?? widget.toko.libur);
 
@@ -62,6 +65,7 @@ class HariTokoViewState extends State<HariTokoView> {
         _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
       } catch (_) {}
       widget.onLoaded?.call(_r);
+      _rev++;
     } catch (e) {
       _error = errMsg(e);
     }
@@ -119,7 +123,20 @@ class HariTokoViewState extends State<HariTokoView> {
         if (me.isPc) const PengingatPcCard(),
         _statusLaporan(laporan, kurang),
         TimegoneBar(hk: hk),
-        SellOutCard(hari: hari, bulan: bulan, target: target, hk: hk),
+        SellOutCard(
+          hari: hari,
+          bulan: bulan,
+          target: target,
+          hk: hk,
+          onTapHp: () => _open(PenjualanBulanScreen(toko: t, tipe: 'HP')),
+          onTapIot: () => _open(PenjualanBulanScreen(toko: t, tipe: 'IOT')),
+        ),
+        if (t.punyaPc)
+          InsentifHariCard(
+            key: ValueKey('ins-${t.storeId}-${t.tgl}-$_rev'),
+            storeId: t.storeId,
+            tanggal: t.tanggal,
+          ),
         if (t.punyaPc)
           EstimasiGajiCard(
             key: ValueKey('gaji-${t.storeId}-${t.tgl}-${_r['laporan'] != null}'),
@@ -127,9 +144,15 @@ class HariTokoViewState extends State<HariTokoView> {
             tanggal: t.tanggal,
             pcNama: t.pcNama,
           ),
-        KalenderPenjualan(key: ValueKey('kal-${t.storeId}'), selected: t.tanggal, storeId: t.storeId),
+        KalenderPenjualan(
+          key: ValueKey('kal-${t.storeId}-$_rev'),
+          selected: t.tanggal,
+          storeId: t.storeId,
+          // Ketuk tanggal: langsung buka detail penjualan tanggal itu
+          onSelect: (d) => _open(PenjualanScreen(toko: t.padaTanggal(d))),
+        ),
         KontribusiTipe(
-          key: ValueKey('kt-${t.storeId}-${t.tgl}-${penjualan.length}'),
+          key: ValueKey('kt-${t.storeId}-${t.tgl}-$_rev'),
           storeId: t.storeId,
           tanggal: t.tanggal,
         ),

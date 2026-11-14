@@ -41,7 +41,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
       final res = await Future.wait<dynamic>([
         db
             .from('sales')
-            .select('id,tipe,nama_produk,qty,harga,subtotal,metode,cara_bayar,kategori_user,tanggal,created_at')
+            .select('id,tipe,product_id,grup,nama_produk,qty,harga,subtotal,metode,cara_bayar,kategori_user,tanggal,created_at')
             .eq('store_id', t.storeId)
             .eq('tanggal', t.tgl)
             .order('created_at'),
@@ -57,6 +57,16 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
 
   Future<void> _add(String tipe) async {
     final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => SaleForm(toko: t, tipe: tipe)));
+    if (ok == true) {
+      _changed = true;
+      _load();
+    }
+  }
+
+  Future<void> _ubah(Map<String, dynamic> r) async {
+    final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => SaleForm(toko: t, tipe: '${r['tipe']}', sale: r),
+    ));
     if (ok == true) {
       _changed = true;
       _load();
@@ -182,6 +192,7 @@ class _PenjualanScreenState extends State<PenjualanScreen> {
                         Card(
                           margin: const EdgeInsets.only(bottom: 6),
                           child: ListTile(
+                            onTap: bolehJual ? () => _ubah(r) : null,
                             leading: Icon(r['tipe'] == 'HP' ? Icons.smartphone : Icons.watch),
                             title: Text('${r['nama_produk']}'),
                             subtitle: Text([

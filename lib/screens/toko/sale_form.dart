@@ -11,7 +11,10 @@ import '../../widgets/widgets.dart';
 class SaleForm extends StatefulWidget {
   final TokoHari toko;
   final String tipe; // HP | IOT
-  const SaleForm({super.key, required this.toko, required this.tipe});
+
+  /// Diisi untuk mengubah penjualan yang sudah ada (baris tabel sales).
+  final Map<String, dynamic>? sale;
+  const SaleForm({super.key, required this.toko, required this.tipe, this.sale});
 
   @override
   State<SaleForm> createState() => _SaleFormState();
@@ -26,6 +29,28 @@ class _SaleFormState extends State<SaleForm> {
   String? _kategori; // Walk-in | Databased | Online
   late DateTime _tanggal = widget.toko.tanggal;
 
+  bool get _ubah => widget.sale != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final s = widget.sale;
+    if (s != null) {
+      _product = {'id': s['product_id'], 'nama': s['nama_produk'], 'harga': s['harga'], 'grup': s['grup']};
+      _qty = toNum(s['qty']).toInt();
+      _metode = s['metode'] as String?;
+      _caraBayar = s['cara_bayar'] as String?;
+      _kategori = s['kategori_user'] as String?;
+      _tanggal = parseDate('${s['tanggal']}');
+    }
+  }
+
+  /// PC hanya boleh tanggal 1 s.d. hari ini di bulan berjalan (dijaga juga di server).
+  DateTime get _tanggalAwal {
+    final today = wibToday();
+    return (Session.current?.isPc ?? false) ? DateTime(today.year, today.month, 1) : DateTime(2026, 1, 1);
+  }
+
   bool get _isHp => widget.tipe == 'HP';
   num get _harga => toNum(_product?['harga']);
   bool get _bukanHariIni => !isSameDay(_tanggal, wibToday());
@@ -34,8 +59,8 @@ class _SaleFormState extends State<SaleForm> {
     final today = wibToday();
     final d = await showDatePicker(
       context: context,
-      initialDate: _tanggal.isAfter(today) ? today : _tanggal,
-      firstDate: DateTime(2026, 1, 1),
+      initialDate: _tanggal.isAfter(today) ? today : (_tanggal.isBefore(_tanggalAwal) ? _tanggalAwal : _tanggal),
+      firstDate: _tanggalAwal,
       lastDate: today,
       helpText: 'Tanggal penjualan',
     );
@@ -65,7 +90,7 @@ class _SaleFormState extends State<SaleForm> {
       showMsg(context, _metode == 'Kredit' ? 'Pilih leasing / platform kredit' : 'Pilih cara bayar cash: Transfer atau Tunai');
       return;
     }
-    if (_bukanHariIni) {
+    if (_bukanHariIni && !_ubah) {
       final ok = await confirmDialog(context, 'Simpan untuk tanggal lain?',
           'Penjualan ini akan dicatat untuk ${hariTgl(_tanggal)}, bukan hari ini.', yes: 'Simpan');
       if (!ok) return;
@@ -73,6 +98,21 @@ class _SaleFormState extends State<SaleForm> {
     setState(() => _busy = true);
     try {
       final me = Session.current!;
+      if (_ubah) {
+        await Session.db.from('sales').update({
+          'tanggal': ymd(_tanggal),
+          'product_id': p['id'],
+          'nama_produk': p['nama'],
+          'grup': p['grup'],
+          'qty': _qty,
+          'harga': p['harga'],
+          'metode': _metode,
+          'cara_bayar': _caraBayar,
+          'kategori_user': _kategori,
+        }).eq('id', '${widget.sale!['id']}');
+        if (mounted) Navigator.pop(context, true);
+        return;
+      }
       await Session.db.from('sales').insert({
         'store_id': widget.toko.storeId,
         'pc_id': me.isPc ? me.id : null,
@@ -109,7 +149,7 @@ class _SaleFormState extends State<SaleForm> {
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_isHp ? 'Penjualan HP' : 'Penjualan IoT'),
+          Text('${_ubah ? 'Ubah penjualan' : 'Penjualan'} ${_isHp ? 'HP' : 'IoT'}'),
           Text(widget.toko.toko, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
         ]),
       ),

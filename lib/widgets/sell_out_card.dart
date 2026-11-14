@@ -63,7 +63,19 @@ class SellOutCard extends StatelessWidget {
 
   /// Judul tambahan, misal "Semua toko area Sampit".
   final String? judul;
-  const SellOutCard({super.key, required this.hari, required this.bulan, required this.target, required this.hk, this.judul});
+
+  /// Ketuk kotak HP / IoT (misal membuka riwayat penjualan).
+  final VoidCallback? onTapHp;
+  final VoidCallback? onTapIot;
+  const SellOutCard(
+      {super.key,
+      required this.hari,
+      required this.bulan,
+      required this.target,
+      required this.hk,
+      this.judul,
+      this.onTapHp,
+      this.onTapIot});
 
   @override
   Widget build(BuildContext context) {
@@ -75,8 +87,8 @@ class SellOutCard extends StatelessWidget {
         Icons.smartphone,
         'Hari ini ${angka(toNum(hari['unit']))} unit · ${rupiahSingkat(toNum(hari['value']))}',
         [
-          _Metrik('Unit HP', toNum(bulan['unit']), toNum(target['unit']), toNum(hari['unit']), unit, hk),
-          _Metrik('Value HP', toNum(bulan['value']), toNum(target['value']), toNum(hari['value']), rupiahSingkat, hk),
+          _Metrik('Unit HP', toNum(bulan['unit']), toNum(target['unit']), toNum(hari['unit']), unit, hk, onTap: onTapHp),
+          _Metrik('Value HP', toNum(bulan['value']), toNum(target['value']), toNum(hari['value']), rupiahSingkat, hk, onTap: onTapHp),
           _Metrik('Fokus A7 Pro', toNum(bulan['fokus_a7pro']), toNum(target['fokus_a7pro']), toNum(hari['fokus_a7pro']),
               unit, hk),
           _Metrik('Fokus Reno 16', toNum(bulan['fokus_reno16']), toNum(target['fokus_reno16']),
@@ -89,8 +101,8 @@ class SellOutCard extends StatelessWidget {
         Icons.watch,
         'Hari ini ${angka(toNum(hari['iot']))} unit · ${rupiahSingkat(toNum(hari['iot_value']))}',
         [
-          _Metrik('Unit IoT', toNum(bulan['iot']), toNum(target['iot']), toNum(hari['iot']), unit, hk),
-          _Metrik('Value IoT', toNum(bulan['iot_value']), 0, toNum(hari['iot_value']), rupiahSingkat, hk),
+          _Metrik('Unit IoT', toNum(bulan['iot']), toNum(target['iot']), toNum(hari['iot']), unit, hk, onTap: onTapIot),
+          _Metrik('Value IoT', toNum(bulan['iot_value']), 0, toNum(hari['iot_value']), rupiahSingkat, hk, onTap: onTapIot),
         ],
       ),
     ]);
@@ -143,7 +155,8 @@ class _Metrik extends StatelessWidget {
   final num hariIni;
   final String Function(num) fmt;
   final HariKerja hk;
-  const _Metrik(this.label, this.capai, this.target, this.hariIni, this.fmt, this.hk);
+  final VoidCallback? onTap;
+  const _Metrik(this.label, this.capai, this.target, this.hariIni, this.fmt, this.hk, {this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -169,6 +182,15 @@ class _Metrik extends StatelessWidget {
       warnaBawah = aman ? Colors.green.shade700 : Colors.red.shade700;
     }
 
+    final kotak = _kotak(c, adaTarget, p, bawah, warnaBawah);
+    if (onTap == null) return kotak;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(borderRadius: BorderRadius.circular(10), onTap: onTap, child: kotak),
+    );
+  }
+
+  Widget _kotak(Color c, bool adaTarget, double p, String bawah, Color warnaBawah) {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       decoration: BoxDecoration(
@@ -211,6 +233,8 @@ class _Metrik extends StatelessWidget {
         Text(bawah, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: warnaBawah)),
         if (hariIni > 0)
           Text('+${fmt(hariIni)} hari ini', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+        if (onTap != null)
+          Text('Ketuk untuk riwayat ›', style: TextStyle(fontSize: 10.5, color: c, fontWeight: FontWeight.w600)),
       ]),
     );
   }

@@ -5,6 +5,7 @@ import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/pengingat_pc.dart';
 import '../../widgets/widgets.dart';
+import '../riwayat_screens.dart';
 import '../toko/hari_toko_view.dart';
 
 /// Detail satu toko untuk TL / Trainer / PIC: sama dengan beranda PC, tanggal bisa dipilih.
@@ -92,9 +93,24 @@ class _TokoDetailScreenState extends State<TokoDetailScreen> {
             onSelected: (v) {
               if (v == 'muat') _view.currentState?.load();
               if (v == 'reset') _reset();
+              if (v == 'istirahat') {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => RiwayatIstirahatScreen(storeId: _toko.storeId, judul: _toko.toko)));
+              }
+              if (v == 'cek') {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => RiwayatCekLimitScreen(storeId: _toko.storeId, judul: _toko.toko)));
+              }
+              if (v == 'galeri') {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => GaleriFotoScreen(storeId: _toko.storeId)));
+              }
             },
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'muat', child: ListTile(leading: Icon(Icons.refresh), title: Text('Muat ulang'))),
+              const PopupMenuItem(
+                  value: 'istirahat', child: ListTile(leading: Icon(Icons.free_breakfast), title: Text('Riwayat istirahat'))),
+              const PopupMenuItem(value: 'cek', child: ListTile(leading: Icon(Icons.fact_check), title: Text('Riwayat cek limit'))),
+              const PopupMenuItem(value: 'galeri', child: ListTile(leading: Icon(Icons.photo_library), title: Text('Galeri foto'))),
               PopupMenuItem(
                 value: 'reset',
                 child: ListTile(

@@ -7,6 +7,7 @@ import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/photo_widgets.dart';
 import '../../widgets/widgets.dart';
+import '../riwayat_screens.dart';
 
 /// Activity toko pada satu tanggal: report sosmed (dengan screenshot) dan cek limit leasing
 /// (dengan selfie bersama sales leasing). Sama dengan modul Activity di Daily Report OS.
@@ -93,6 +94,15 @@ class _ActivityScreenState extends State<ActivityScreen> {
           const Text('Activity'),
           Text('${t.toko} · ${tglPendek(t.tanggal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
         ]),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => RiwayatCekLimitScreen(storeId: t.storeId, judul: t.toko),
+            )),
+            icon: const Icon(Icons.history),
+            label: const Text('Riwayat cek limit'),
+          ),
+        ],
       ),
       bottomNavigationBar: !boleh || _loading || _error != null
           ? null

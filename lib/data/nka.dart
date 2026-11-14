@@ -151,6 +151,17 @@ class TokoHari {
         libur: m['libur'] as String?,
       );
 
+  /// Toko yang sama pada tanggal lain (status libur tanggal itu tidak diketahui).
+  TokoHari padaTanggal(DateTime d) => TokoHari(
+        storeId: storeId,
+        toko: toko,
+        area: area,
+        pcId: pcId,
+        pcNama: pcNama,
+        punyaPc: punyaPc,
+        tanggal: dateOnly(d),
+      );
+
   TokoHari denganLibur(String? l) => TokoHari(
         storeId: storeId,
         toko: toko,
@@ -182,8 +193,11 @@ class TokoHari {
   /// Sama dengan aturan server can_write_sales.
   bool get bolehIsiPenjualan {
     final me = Session.current;
-    if (me == null || tanggal.isAfter(wibToday())) return false;
-    return me.isPic || me.isPc || me.isTl;
+    final today = wibToday();
+    if (me == null || tanggal.isAfter(today)) return false;
+    // PC: hanya bulan berjalan (tgl 1 s.d. hari ini), sama dengan server can_write_sales
+    if (me.isPc) return tanggal.year == today.year && tanggal.month == today.month;
+    return me.isPic || me.isTl;
   }
 
   /// Alasan tidak bisa mengisi data harian (untuk ditampilkan).
