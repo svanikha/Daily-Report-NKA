@@ -23,6 +23,17 @@ class PushService {
   /// Dipasang oleh dashboard admin: membuka halaman Pesan Masuk saat push diketuk.
   static void Function()? onOpenInbox;
 
+  /// Dipanggil saat push diketuk, membawa data push (misal jenis 'pesan' + id pengirim).
+  static void Function(Map<String, dynamic> data)? onOpen;
+
+  static void _buka(Map<String, dynamic> data) {
+    if (onOpen != null) {
+      onOpen!(data);
+    } else {
+      onOpenInbox?.call();
+    }
+  }
+
   /// Pesan error terakhir pendaftaran push (ditampilkan di layar Akses notifikasi).
   static String? galat;
 
@@ -93,9 +104,9 @@ class PushService {
         if (n != null) NotifService.showNow(n.title ?? 'Peringatan', n.body ?? '');
       });
       // Push diketuk saat aplikasi di latar belakang / tertutup -> buka Pesan Masuk
-      FirebaseMessaging.onMessageOpenedApp.listen((_) => onOpenInbox?.call());
+      FirebaseMessaging.onMessageOpenedApp.listen((m) => _buka(m.data));
       final initial = await fm.getInitialMessage();
-      if (initial != null) onOpenInbox?.call();
+      if (initial != null) _buka(initial.data);
     } catch (e) {
       galat ??= 'Gagal mendaftarkan push: $e';
       debugPrint(galat);

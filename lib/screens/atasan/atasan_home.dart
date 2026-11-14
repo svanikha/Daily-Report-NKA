@@ -26,6 +26,7 @@ import 'checklist_screen.dart';
 import 'export_screen.dart';
 import 'kpi_screen.dart';
 import 'offday_screen.dart';
+import 'pesan_screen.dart';
 import 'produk_screen.dart';
 import 'target_screen.dart';
 import 'toko_detail_screen.dart';
@@ -45,6 +46,8 @@ class _AtasanHomeState extends State<AtasanHome> {
   String? _error;
   List<Map<String, dynamic>> _toko = [];
   int _unread = 0;
+  int _pesanBaru = 0; // pesan pribadi antar atasan yang belum dibaca
+  RealtimeChannel? _chPesan;
   int? _filterStore; // null = semua toko di cakupan
   int _rev = 0; // naik setiap data dimuat ulang (kartu ringkasan ikut memuat ulang)
   RealtimeChannel? _channel;
@@ -60,6 +63,26 @@ class _AtasanHomeState extends State<AtasanHome> {
     PushService.onOpenInbox = () {
       if (mounted) _bukaAktivitas();
     };
+    // Push pesan atasan -> buka percakapan; balasan PC -> cukup tampil; lainnya -> Aktivitas
+    PushService.onOpen = (data) {
+      if (!mounted) return;
+      final jenis = '${data['jenis'] ?? ''}';
+      if (jenis == 'pesan') {
+        _bukaPesan(data['dari'] as String?);
+      } else if (jenis != 'respon_pengingat' && jenis != 'tes') {
+        _bukaAktivitas();
+      }
+    };
+    _loadPesan();
+    _chPesan = Session.db
+        .channel('pesan_badge')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'pesan_atasan',
+          callback: (_) => _loadPesan(),
+        )
+        .subscribe();
     PushService.registerAdmin();
     // Perbarui lampu online PC setiap 1 menit selama halaman terbuka
     _refresh = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -88,6 +111,9 @@ class _AtasanHomeState extends State<AtasanHome> {
   @override
   void dispose() {
     PushService.onOpenInbox = null;
+    PushService.onOpen = null;
+    final cp = _chPesan;
+    if (cp != null) Session.db.removeChannel(cp);
     _refresh?.cancel();
     final c = _channel;
     if (c != null) Session.db.removeChannel(c);
@@ -99,6 +125,18 @@ class _AtasanHomeState extends State<AtasanHome> {
       final n = toNum(await Session.db.rpc('my_inbox_unread')).toInt();
       if (mounted) setState(() => _unread = n);
     } catch (_) {}
+  }
+
+  Future<void> _loadPesan() async {
+    try {
+      final n = toNum(await Session.db.rpc('pesan_belum_dibaca')).toInt();
+      if (mounted) setState(() => _pesanBaru = n);
+    } catch (_) {}
+  }
+
+  Future<void> _bukaPesan([String? dari]) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => PesanKontakScreen(bukaDari: dari)));
+    _loadPesan();
   }
 
   Future<void> _bukaAktivitas() async {
@@ -157,6 +195,15 @@ class _AtasanHomeState extends State<AtasanHome> {
           Text('${me.nama} · ${me.roleLabel} · $cakupan', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
         ]),
         actions: [
+          IconButton(
+            onPressed: _bukaPesan,
+            tooltip: 'Pesan TL, Trainer, PIC',
+            icon: Badge(
+              isLabelVisible: _pesanBaru > 0,
+              label: Text(_pesanBaru > 99 ? '99+' : '$_pesanBaru'),
+              child: const Icon(Icons.chat),
+            ),
+          ),
           IconButton(
             onPressed: _bukaAktivitas,
             tooltip: 'Aktivitas toko',

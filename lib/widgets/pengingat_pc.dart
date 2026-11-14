@@ -255,6 +255,7 @@ class _RiwayatPengingatState extends State<RiwayatPengingat> {
           .from('pengingat')
           .select('id,pesan,created_at,dibaca_pada,respon,respon_pada,push_ok,profiles!pengingat_dari_fkey(nama)')
           .eq('store_id', widget.storeId)
+          .eq('dari', Session.current?.id ?? '')
           .order('created_at', ascending: false)
           .limit(5));
       if (mounted) setState(() => _rows = rows);
@@ -268,7 +269,7 @@ class _RiwayatPengingatState extends State<RiwayatPengingat> {
     final rows = _rows;
     if (rows == null || rows.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Pengingat terakhir', style: TextStyle(fontWeight: FontWeight.w600)),
+      const Text('Pesan terakhir kamu ke PC ini (hanya terlihat oleh kamu)', style: TextStyle(fontWeight: FontWeight.w600)),
       const SizedBox(height: 4),
       for (final r in rows) _row(r),
     ]);

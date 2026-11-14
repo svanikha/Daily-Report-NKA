@@ -172,6 +172,39 @@ async function kirimPengingat(db: SupabaseClient, id: string) {
   return json({ pengingat: id, dikirim: ok ? 1 : 0 });
 }
 
+const labelPeran = (role?: string) =>
+  role === "tl" ? "TL" : role === "trainer" ? "Trainer" : role === "pic" ? "PIC NKA" : "PC";
+
+/** Balasan "Siap 👍" PC: hanya dikirim ke atasan yang mengirim pengingat. */
+async function kirimRespon(db: SupabaseClient, id: string) {
+  const sa = serviceAccount();
+  if (!sa) return json({ respon: id, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
+  const { data: pg } = await db.from("pengingat").select("*").eq("id", id).maybeSingle();
+  if (!pg?.dari) return json({ respon: id, dikirim: 0, catatan: "pengingat tidak ada" });
+  const { data: atasan } = await db.from("profiles").select("*").eq("id", pg.dari).maybeSingle();
+  if (!atasan?.fcm_token) return json({ respon: id, dikirim: 0, catatan: "HP pengirim belum terdaftar" });
+  const { data: pc } = await db.from("profiles").select("nama").eq("id", pg.pc_id).maybeSingle();
+  const { data: toko } = await db.from("stores").select("nama").eq("id", pg.store_id).maybeSingle();
+  const ok = await kirimPush(db, sa, atasan as Profil, `${pc?.nama ?? "PC"}: ${pg.respon ?? "Siap"} 👍`,
+    `${toko?.nama ?? ""} · membalas pesanmu: ${pg.pesan}`,
+    { jenis: "respon_pengingat", store_id: String(pg.store_id), pengingat_id: String(pg.id) }, `respon-${pg.id}`);
+  return json({ respon: id, dikirim: ok ? 1 : 0 });
+}
+
+/** Pesan pribadi antar atasan (TL, Trainer, PIC NKA). */
+async function kirimPesan(db: SupabaseClient, id: string) {
+  const sa = serviceAccount();
+  if (!sa) return json({ pesan: id, dikirim: 0, catatan: "FCM_SERVICE_ACCOUNT belum diisi" });
+  const { data: m } = await db.from("pesan_atasan").select("*").eq("id", id).maybeSingle();
+  if (!m) return json({ pesan: id, dikirim: 0, catatan: "pesan tidak ada" });
+  const { data: ke } = await db.from("profiles").select("*").eq("id", m.ke).maybeSingle();
+  if (!ke?.fcm_token) return json({ pesan: id, dikirim: 0, catatan: "HP penerima belum terdaftar" });
+  const { data: dari } = await db.from("profiles").select("nama, role").eq("id", m.dari).maybeSingle();
+  const ok = await kirimPush(db, sa, ke as Profil, `💬 ${dari?.nama ?? "Atasan"} (${labelPeran(dari?.role)})`, m.isi,
+    { jenis: "pesan", dari: String(m.dari), pesan_id: String(m.id) }, `pesan-${m.dari}`);
+  return json({ pesan: id, dikirim: ok ? 1 : 0 });
+}
+
 /** Push percobaan ke HP sendiri (tombol "Tes notifikasi"). */
 async function kirimTes(db: SupabaseClient, profileId: string) {
   const sa = serviceAccount();
@@ -196,6 +229,8 @@ Deno.serve(async (req) => {
   }
   try {
     if (body?.tes_profile) return await kirimTes(db, String(body.tes_profile));
+    if (body?.respon_pengingat) return await kirimRespon(db, String(body.respon_pengingat));
+    if (body?.pesan_id) return await kirimPesan(db, String(body.pesan_id));
     if (body?.pengingat_id) return await kirimPengingat(db, String(body.pengingat_id));
     if (!body?.event_id) return json({ error: "event_id wajib" }, 400);
     return await kirimEvent(db, String(body.event_id));
