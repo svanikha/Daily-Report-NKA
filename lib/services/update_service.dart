@@ -89,7 +89,8 @@ class UpdateService {
         barrierDismissible: false,
         builder: (_) => _UpdateDialog(
           versi: '${m['version_name'] ?? code}',
-          catatan: '${m['catatan'] ?? ''}',
+          // Keterangan fitur (pesan commit) tidak ditampilkan ke pengguna
+          catatan: '',
           url: url,
         ),
       );

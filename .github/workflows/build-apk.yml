@@ -193,7 +193,7 @@ jobs:
           MSG="$(git log -1 --format=%s)"
           jq -n --argjson code "$N" --arg name "1.0.$N" --arg msg "$MSG" \
             --arg url "$SB_URL/storage/v1/object/public/apk/$CH/$F" \
-            '{version_code: $code, version_name: $name, url: $url, catatan: $msg}' > latest.json
+            '{version_code: $code, version_name: $name, url: $url, catatan: ""}' > latest.json
           cat latest.json
           # [tes] di pesan commit: update otomatis HANYA untuk akun PIC NKA (latest_pic.json).
           # PC, TL, dan Trainer tidak menerima apa pun sampai ada commit rilis tanpa [tes].
