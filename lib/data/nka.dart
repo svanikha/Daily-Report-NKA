@@ -11,25 +11,57 @@ const kategoriUserList = ['Walk-in', 'Databased', 'Online'];
 /// Leasing untuk cek limit (sama dengan pilihan Kredit di penjualan).
 const leasingList = kreditViaList;
 
-/// Aktivitas sosmed (seperti Daily Report OS, tanpa TikTok konten).
+/// Jenis activity PC (FB Marketplace, TikTok Live, IG/WA story, dan activity baru buatan atasan).
+/// Daftar dimuat dari tabel jenis_activity (tahap2m.sql); 4 jenis bawaan dipakai jika belum dimuat.
 class SosmedDef {
   final String kode;
-  final String platform;
-  final String aktivitas;
+  final String nama;
   final String satuan;
-  const SosmedDef(this.kode, this.platform, this.aktivitas, this.satuan);
-  String get label => '$platform - $aktivitas';
+
+  /// null = semua area
+  final int? areaId;
+  final bool aktif;
+  const SosmedDef(this.kode, this.nama, this.satuan, {this.areaId, this.aktif = true});
+  String get label => nama;
+
+  factory SosmedDef.dari(Map<String, dynamic> m) => SosmedDef(
+        '${m['kode']}',
+        '${m['nama']}',
+        '${m['satuan'] ?? 'kali'}',
+        areaId: m['area_id'] == null ? null : toNum(m['area_id']).toInt(),
+        aktif: m['aktif'] != false,
+      );
 }
 
-const sosmedDefs = [
-  SosmedDef('fb_posting', 'FB Marketplace', 'Posting', 'kali'),
-  SosmedDef('tiktok_live', 'TikTok', 'Live', 'kali'),
-  SosmedDef('ig_story', 'Instagram', 'Update story', 'kali'),
-  SosmedDef('wa_story', 'WhatsApp', 'Update story', 'kali'),
+const _sosmedBawaan = [
+  SosmedDef('fb_posting', 'FB Marketplace - Posting', 'kali'),
+  SosmedDef('tiktok_live', 'TikTok - Live', 'kali'),
+  SosmedDef('ig_story', 'Instagram - Update story', 'kali'),
+  SosmedDef('wa_story', 'WhatsApp - Update story', 'kali'),
 ];
 
+/// Semua jenis activity yang dikenal (termasuk yang sudah dinonaktifkan, untuk label riwayat).
+List<SosmedDef> semuaJenisActivity = [..._sosmedBawaan];
+
+/// Jenis activity aktif (semua area).
+List<SosmedDef> get sosmedDefs => semuaJenisActivity.where((d) => d.aktif).toList();
+
+/// Jenis activity aktif yang berlaku di satu area (umum + khusus area itu).
+List<SosmedDef> jenisActivityArea(int? areaId) =>
+    sosmedDefs.where((d) => d.areaId == null || d.areaId == areaId).toList();
+
+/// Muat ulang daftar jenis activity dari server (aman dipanggil berkali-kali).
+Future<void> muatJenisActivity() async {
+  try {
+    final rows = asList(await Session.db.from('jenis_activity').select('kode,nama,satuan,area_id,aktif,urutan').order('urutan'));
+    if (rows.isNotEmpty) semuaJenisActivity = [for (final r in rows) SosmedDef.dari(r)];
+  } catch (_) {
+    // tahap2m.sql belum dijalankan: tetap pakai 4 jenis bawaan
+  }
+}
+
 SosmedDef? sosmedByKode(String? kode) {
-  for (final d in sosmedDefs) {
+  for (final d in semuaJenisActivity) {
     if (d.kode == kode) return d;
   }
   return null;

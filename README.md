@@ -36,6 +36,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 21. `supabase/tahap2j.sql` → akun Manajer Trainer (Akhmad Saifuddin, akses setara PIC), foto profil, kontribusi kategori user. Setelah itu deploy ulang edge function **kirim-notif**.
 22. `supabase/tahap2k.sql` → lampu online di chat atasan, Manajer/PIC bisa hapus riwayat chat.
 23. `supabase/tahap2l.sql` → hapus otomatis foto bukti > 30 hari / storage ≥ 80% dan APK lama (setiap 02.00 WIB). Setelah itu deploy ulang edge function **kirim-notif**.
+24. `supabase/tahap2m.sql` → jenis activity bisa ditambah atasan + kewajiban activity harian per area.
 
 ## Peran
 

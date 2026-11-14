@@ -6,6 +6,7 @@ import '../../utils.dart';
 import '../../widgets/estimasi_gaji.dart';
 import '../../widgets/insentif_harian.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/kewajiban_card.dart';
 import '../../widgets/kontribusi_kategori.dart';
 import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
@@ -64,6 +65,10 @@ class HariTokoViewState extends State<HariTokoView> {
       try {
         // Activity sosmed & cek limit (tahap1f.sql). Jika belum dijalankan, bagian Activity dikosongkan.
         _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
+      } catch (_) {}
+      try {
+        // Kewajiban activity area (tahap2m.sql)
+        _r['kewajiban'] = await Session.db.rpc('kewajiban_status', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
       } catch (_) {}
       widget.onLoaded?.call(_r);
       _rev++;
@@ -284,11 +289,17 @@ class HariTokoViewState extends State<HariTokoView> {
     final leasing = asList(a['leasing_hari']);
     final approve = leasing.where((l) => l['hasil'] == 'Approve').length;
     final ada = sosmed > 0 || leasing.isNotEmpty;
+    final wajib = asList(_r['kewajiban']);
+    final h = hitungKewajiban(wajib);
+    final ringkas = 'Activity ${angka(sosmed)} · cek limit ${leasing.length} ($approve approve)';
     return _tile(
       icon: Icons.campaign,
       title: 'Activity (sosmed & cek limit)',
-      status: ada ? 'Sosmed ${angka(sosmed)} · cek limit ${leasing.length} ($approve approve)' : 'Belum ada (opsional)',
-      ok: ada,
+      status: wajib.isNotEmpty
+          ? 'Kewajiban ${h.penuh}/${h.total} terpenuhi · $ringkas'
+          : (ada ? ringkas : 'Belum ada (tidak ada kewajiban)'),
+      ok: wajib.isNotEmpty ? h.penuh == h.total : ada,
+      warn: wajib.isNotEmpty && h.penuh < h.total && (sosmed > 0 || leasing.isNotEmpty),
       onTap: () => _open(ActivityScreen(toko: t)),
     );
   }

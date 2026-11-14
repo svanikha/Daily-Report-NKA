@@ -26,6 +26,7 @@ import 'akun_pc_screen.dart';
 import 'aktivitas_screen.dart';
 import 'checklist_screen.dart';
 import 'export_screen.dart';
+import 'kewajiban_screen.dart';
 import 'kpi_screen.dart';
 import 'offday_screen.dart';
 import 'pesan_screen.dart';
@@ -506,6 +507,17 @@ class _AtasanHomeState extends State<AtasanHome> {
         ]),
       ),
       const SectionHeader('Pengaturan'),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.flag),
+          title: const Text('Activity & kewajiban PC'),
+          subtitle: Text(me.isPic
+              ? 'Target harian sosmed & cek limit per area, tambah activity baru'
+              : 'Target harian sosmed & cek limit PC area ${me.area}, tambah activity baru'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => go(const KewajibanScreen()),
+        ),
+      ),
       if (!bisaAtur)
         const InfoBanner('Jadwal offday, produk & harga, dan target diatur oleh Trainer dan PIC NKA.'),
       if (bisaAtur) ...[

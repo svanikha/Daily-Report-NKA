@@ -7,6 +7,7 @@ import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/photo_widgets.dart';
 import '../../widgets/widgets.dart';
+import '../../widgets/kewajiban_card.dart';
 import '../riwayat_screens.dart';
 
 /// Activity toko pada satu tanggal: report sosmed (dengan screenshot) dan cek limit leasing
@@ -25,6 +26,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   List<Map<String, dynamic>> _sosmed = [];
   List<Map<String, dynamic>> _leasing = [];
   final Map<String, List<Map<String, dynamic>>> _foto = {};
+  List<Map<String, dynamic>> _wajib = [];
 
   TokoHari get t => widget.toko;
 
@@ -41,6 +43,12 @@ class _ActivityScreenState extends State<ActivityScreen> {
     });
     try {
       final db = Session.db;
+      await muatJenisActivity();
+      try {
+        _wajib = asList(await db.rpc('kewajiban_status', params: {'p_store': t.storeId, 'p_tanggal': t.tgl}));
+      } catch (_) {
+        _wajib = [];
+      }
       final res = await Future.wait<dynamic>([
         db.from('social_activities').select().eq('store_id', t.storeId).eq('tanggal', t.tgl).order('created_at'),
         db.from('leasing_checks').select().eq('store_id', t.storeId).eq('tanggal', t.tgl).order('created_at'),
@@ -114,7 +122,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
                     child: FilledButton.icon(
                       onPressed: () => _tambah(SosmedForm(toko: t)),
                       icon: const Icon(Icons.campaign),
-                      label: const Text('+ Sosmed'),
+                      label: const Text('+ Activity'),
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     ),
                   ),
@@ -138,8 +146,9 @@ class _ActivityScreenState extends State<ActivityScreen> {
                   onRefresh: _load,
                   child: ListView(padding: const EdgeInsets.all(12), children: [
                     if (!boleh) InfoBanner(t.alasanTerkunci, icon: Icons.lock_outline),
-                    SectionHeader('Report sosmed (${_sosmed.fold<num>(0, (a, r) => a + toNum(r['jumlah']))})'),
-                    if (_sosmed.isEmpty) const EmptyState(text: 'Belum ada report sosmed', icon: Icons.campaign),
+                    if (_wajib.isNotEmpty) KewajibanCard(rows: _wajib),
+                    SectionHeader('Report activity (${_sosmed.fold<num>(0, (a, r) => a + toNum(r['jumlah']))})'),
+                    if (_sosmed.isEmpty) const EmptyState(text: 'Belum ada report activity', icon: Icons.campaign),
                     for (final r in _sosmed) _sosmedTile(r, boleh),
                     SectionHeader('Cek limit leasing (${_leasing.length} · $approve approve)'),
                     if (_leasing.isEmpty) const EmptyState(text: 'Belum ada cek limit', icon: Icons.fact_check),
@@ -202,6 +211,29 @@ class SosmedForm extends StatefulWidget {
 
 class _SosmedFormState extends State<SosmedForm> {
   String _kode = sosmedDefs.first.kode;
+  List<SosmedDef> _jenis = sosmedDefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _muatJenis();
+  }
+
+  /// Jenis activity yang berlaku di area toko ini (umum + khusus area).
+  Future<void> _muatJenis() async {
+    await muatJenisActivity();
+    int? area;
+    try {
+      final s = await Session.db.from('stores').select('area_id').eq('id', widget.toko.storeId).maybeSingle();
+      area = s == null ? null : toNum(s['area_id']).toInt();
+    } catch (_) {}
+    final j = jenisActivityArea(area);
+    if (!mounted || j.isEmpty) return;
+    setState(() {
+      _jenis = j;
+      if (!j.any((d) => d.kode == _kode)) _kode = j.first.kode;
+    });
+  }
   final _jumlah = TextEditingController(text: '1');
   final _link = TextEditingController();
   List<PickedPhoto> _photos = [];
@@ -256,17 +288,18 @@ class _SosmedFormState extends State<SosmedForm> {
 
   @override
   Widget build(BuildContext context) {
-    final def = sosmedByKode(_kode)!;
+    final def = sosmedByKode(_kode) ?? _jenis.first;
     return Scaffold(
-      appBar: AppBar(title: const Text('Report sosmed')),
+      appBar: AppBar(title: const Text('Report activity')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Text('${widget.toko.toko} · ${hariTgl(widget.toko.tanggal)}'),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
+          key: ValueKey('jenis-${_jenis.length}'),
           initialValue: _kode,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Aktivitas *'),
-          items: [for (final d in sosmedDefs) DropdownMenuItem(value: d.kode, child: Text(d.label))],
+          items: [for (final d in _jenis) DropdownMenuItem(value: d.kode, child: Text(d.label))],
           onChanged: (v) => setState(() => _kode = v ?? _kode),
         ),
         const SizedBox(height: 12),

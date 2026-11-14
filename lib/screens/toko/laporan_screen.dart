@@ -41,6 +41,7 @@ class _LaporanScreenState extends State<LaporanScreen> {
       _r = asMap(await Session.db.rpc('rekap_toko', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl}));
       try {
         // Activity sosmed & cek limit (tahap1f.sql). Jika belum dijalankan, bagian Activity dikosongkan.
+        await muatJenisActivity();
         _r['activity'] = await Session.db.rpc('rekap_activity', params: {'p_store': widget.toko.storeId, 'p_tanggal': widget.toko.tgl});
       } catch (_) {}
       try {
