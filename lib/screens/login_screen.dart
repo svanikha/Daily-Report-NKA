@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ];
 
   static String _atasanLabel(Map<String, dynamic> p) => switch (p['role']) {
-        'pic' => '${p['nama']} (PIC NKA)',
+        'pic' => '${p['nama']} (${p['jabatan'] ?? 'PIC NKA'})',
         'trainer' => '${p['nama']} (Trainer ${p['area']})',
         'tl' => '${p['nama']} (TL ${p['area']})',
         _ => '${p['nama']}',
@@ -79,7 +79,11 @@ class _LoginScreenState extends State<LoginScreen> {
       _isAdmin ? _admin : _pcs.where((p) => p['id'] == _selectedId).firstOrNull;
 
   /// PC, TL, dan Trainer membuat password sendiri saat login pertama. Akun PIC NKA dibuat di Supabase.
-  bool get _needCreate => _selected != null && _selected!['role'] != 'pic' && _selected!['sudah_daftar'] != true;
+  /// Akun berjabatan (Manajer Trainer) juga membuat password sendiri.
+  bool get _needCreate =>
+      _selected != null &&
+      (_selected!['role'] != 'pic' || _selected!['jabatan'] != null) &&
+      _selected!['sudah_daftar'] != true;
 
   Future<void> _submit() async {
     final p = _selected;
@@ -249,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
                     ),
                     const SizedBox(height: 12),
-                    if (sel == null || sel['role'] != 'pic')
+                    if (sel == null || sel['role'] != 'pic' || sel['jabatan'] != null)
                       Text(
                         'Lupa password? Minta Trainer atau PIC NKA melakukan reset.',
                         textAlign: TextAlign.center,

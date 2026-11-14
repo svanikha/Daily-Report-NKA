@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
 import '../screens/izin_notif_screen.dart';
 import '../screens/login_screen.dart';
+import '../widgets/avatar.dart';
 import '../widgets/widgets.dart';
 import 'notif_service.dart';
 import 'presence_service.dart';
@@ -59,32 +60,46 @@ Future<void> logout(BuildContext context) async {
   );
 }
 
-/// Tombol menu akun (ganti password, keluar) untuk AppBar.
+/// Tombol menu akun (foto profil, akses notifikasi, ganti password, keluar) untuk AppBar.
 class AkunMenuButton extends StatelessWidget {
   const AkunMenuButton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final p = Session.current;
-    return PopupMenuButton<String>(
-      icon: const Icon(Icons.account_circle),
-      tooltip: 'Akun',
-      onSelected: (v) {
-        if (v == 'pw') changePasswordDialog(context);
-        if (v == 'notif') Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IzinNotifScreen()));
-        if (v == 'out') logout(context);
+    return ValueListenableBuilder<int>(
+      valueListenable: Session.perubahan,
+      builder: (context, _, __) {
+        final p = Session.current;
+        return PopupMenuButton<String>(
+          icon: p == null ? const Icon(Icons.account_circle) : AvatarProfil(url: p.fotoUrl, nama: p.nama, radius: 15),
+          tooltip: 'Akun',
+          onSelected: (v) {
+            if (v == 'foto') gantiFotoProfil(context);
+            if (v == 'pw') changePasswordDialog(context);
+            if (v == 'notif') Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IzinNotifScreen()));
+            if (v == 'out') logout(context);
+          },
+          itemBuilder: (_) => [
+            if (p != null)
+              PopupMenuItem<String>(
+                value: 'foto',
+                child: Row(children: [
+                  AvatarProfil(url: p.fotoUrl, nama: p.nama, radius: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                        '${p.nama}\n${p.roleLabel}${p.isPc ? ' · ${p.toko}' : (p.area.isNotEmpty ? ' · ${p.area}' : '')}'),
+                  ),
+                ]),
+              ),
+            const PopupMenuItem(value: 'foto', child: ListTile(leading: Icon(Icons.face), title: Text('Foto profil'))),
+            const PopupMenuItem(
+                value: 'notif', child: ListTile(leading: Icon(Icons.notifications_active), title: Text('Akses notifikasi'))),
+            const PopupMenuItem(value: 'pw', child: ListTile(leading: Icon(Icons.key), title: Text('Ganti password'))),
+            const PopupMenuItem(value: 'out', child: ListTile(leading: Icon(Icons.logout), title: Text('Keluar'))),
+          ],
+        );
       },
-      itemBuilder: (_) => [
-        if (p != null)
-          PopupMenuItem<String>(
-            enabled: false,
-            child: Text('${p.nama}\n${p.roleLabel}${p.isPc ? ' · ${p.toko}' : (p.area.isNotEmpty ? ' · ${p.area}' : '')}'),
-          ),
-        const PopupMenuItem(
-            value: 'notif', child: ListTile(leading: Icon(Icons.notifications_active), title: Text('Akses notifikasi'))),
-        const PopupMenuItem(value: 'pw', child: ListTile(leading: Icon(Icons.key), title: Text('Ganti password'))),
-        const PopupMenuItem(value: 'out', child: ListTile(leading: Icon(Icons.logout), title: Text('Keluar'))),
-      ],
     );
   }
 }

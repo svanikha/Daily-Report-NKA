@@ -11,7 +11,9 @@ import '../../services/session.dart';
 import '../../services/update_service.dart';
 import '../../utils.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/kontribusi_bayar.dart';
+import '../../widgets/kontribusi_kategori.dart';
 import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
@@ -53,6 +55,7 @@ class _AtasanHomeState extends State<AtasanHome> {
   RealtimeChannel? _channel;
   Timer? _refresh;
   final Map<String, StatusOnline> _online = {}; // pc_id -> status online
+  final Map<String, String?> _fotoPc = {}; // pc_id -> foto profil
 
   Profile get me => Session.current!;
 
@@ -161,6 +164,12 @@ class _AtasanHomeState extends State<AtasanHome> {
         _online
           ..clear()
           ..addAll({for (final p in pcs) '${p['id']}': StatusOnline.dari(p, parseWib)});
+      } catch (_) {}
+      try {
+        final f = asList(await Session.db.from('profiles').select('id,foto_url').eq('role', 'pc').eq('aktif', true));
+        _fotoPc
+          ..clear()
+          ..addAll({for (final p in f) '${p['id']}': p['foto_url'] as String?});
       } catch (_) {}
     } catch (e) {
       _error = errMsg(e);
@@ -290,6 +299,7 @@ class _AtasanHomeState extends State<AtasanHome> {
         },
       ),
       KontribusiBayar(tanggal: _tanggal, storeId: _filterStore),
+      KontribusiKategori(key: ValueKey('kk-$_filterStore-${ymd(_tanggal)}'), storeId: _filterStore, tanggal: _tanggal),
       KontribusiTipe(key: ValueKey('kt-$_filterStore-${ymd(_tanggal)}'), storeId: _filterStore, tanggal: _tanggal),
       Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 8),
@@ -379,6 +389,10 @@ class _AtasanHomeState extends State<AtasanHome> {
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
+              if (!nonPc) ...[
+                AvatarProfil(url: _fotoPc['${t['pc_id']}'], nama: '${t['pc'] ?? ''}', radius: 20),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${t['toko']}', style: const TextStyle(fontWeight: FontWeight.bold)),

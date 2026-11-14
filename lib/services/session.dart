@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../utils.dart';
@@ -35,6 +36,12 @@ class Profile {
   final int radiusM;
   final List<StoreLocation> lokasi;
 
+  /// Jabatan khusus (misal "Manajer Trainer" dengan akses setara PIC). null = sesuai peran.
+  final String? jabatan;
+
+  /// URL foto profil (bucket publik "profil").
+  final String? fotoUrl;
+
   const Profile({
     required this.id,
     required this.nama,
@@ -48,6 +55,8 @@ class Profile {
     this.storeLng,
     this.radiusM = 100,
     this.lokasi = const [],
+    this.jabatan,
+    this.fotoUrl,
   });
 
   bool get isPc => role == 'pc';
@@ -56,7 +65,7 @@ class Profile {
   bool get isPic => role == 'pic';
 
   /// Label peran untuk tampilan.
-  String get roleLabel => switch (role) {
+  String get roleLabel => jabatan ?? switch (role) {
         'pc' => 'Product Consultant',
         'tl' => 'Tim Leader',
         'trainer' => 'Trainer',
@@ -85,11 +94,16 @@ class Profile {
         storeLng: m['store_lng'] == null ? null : toNum(m['store_lng']).toDouble(),
         radiusM: m['radius_m'] == null ? 100 : toNum(m['radius_m']).toInt(),
         lokasi: [for (final x in asList(m['lokasi'])) StoreLocation.fromMap(x)],
+        jabatan: m['jabatan'] as String?,
+        fotoUrl: m['foto_url'] as String?,
       );
 }
 
 class Session {
   static Profile? current;
+
+  /// Naik setiap data akun berubah (misal foto profil), agar tampilan ikut diperbarui.
+  static final perubahan = ValueNotifier<int>(0);
 
   static SupabaseClient get db => Supabase.instance.client;
 

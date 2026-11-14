@@ -6,6 +6,7 @@ import '../../utils.dart';
 import '../../widgets/estimasi_gaji.dart';
 import '../../widgets/insentif_harian.dart';
 import '../../widgets/kalender_penjualan.dart';
+import '../../widgets/kontribusi_kategori.dart';
 import '../../widgets/kontribusi_tipe.dart';
 import '../../widgets/pengingat_pc.dart';
 import '../../widgets/sell_out_card.dart';
@@ -151,6 +152,12 @@ class HariTokoViewState extends State<HariTokoView> {
           // Ketuk tanggal: langsung buka detail penjualan tanggal itu
           onSelect: (d) => _open(PenjualanScreen(toko: t.padaTanggal(d))),
         ),
+        if (!me.isPc)
+          KontribusiKategori(
+            key: ValueKey('kk-${t.storeId}-${t.tgl}-$_rev'),
+            storeId: t.storeId,
+            tanggal: t.tanggal,
+          ),
         KontribusiTipe(
           key: ValueKey('kt-${t.storeId}-${t.tgl}-$_rev'),
           storeId: t.storeId,

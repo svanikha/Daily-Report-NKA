@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/presence_service.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
 
@@ -41,7 +42,7 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
       final db = Session.db;
       final res = await Future.wait<dynamic>([
         db.from('stores').select('id,nama,area_id,punya_pc,areas(nama)').eq('aktif', true).order('area_id').order('id'),
-        db.from('profiles').select('id,nama,store_id,auth_uid,last_seen,last_login,logged_in').eq('role', 'pc').eq('aktif', true).order('nama'),
+        db.from('profiles').select('id,nama,store_id,auth_uid,last_seen,last_login,logged_in,foto_url').eq('role', 'pc').eq('aktif', true).order('nama'),
       ]);
       _stores = asList(res[0]).where(_bolehToko).toList();
       final ids = _stores.map((s) => toNum(s['id']).toInt()).toSet();
@@ -174,7 +175,7 @@ class _AkunPcScreenState extends State<AkunPcScreen> {
         Card(
           margin: const EdgeInsets.only(bottom: 4),
           child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.person)),
+            leading: AvatarProfil(url: p['foto_url'] as String?, nama: '${p['nama']}'),
             title: Text('${p['nama']}', style: const TextStyle(fontWeight: FontWeight.w600)),
             subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               StatusOnlineRow(status: StatusOnline.dari(p, parseWib)),

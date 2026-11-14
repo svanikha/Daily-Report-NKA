@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 import '../../data/nka.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
+import '../../widgets/avatar.dart';
 import '../../widgets/status_online.dart';
 import '../../widgets/widgets.dart';
 
@@ -72,7 +73,7 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
   Widget build(BuildContext context) {
     final q = _q.toLowerCase();
     final list = _kontak
-        .where((k) => q.isEmpty || '${k['nama']} ${_peran(k['role'] as String?)} ${k['area'] ?? ''}'.toLowerCase().contains(q))
+        .where((k) => q.isEmpty || '${k['nama']} ${(k['jabatan'] as String? ?? _peran(k['role'] as String?))} ${k['area'] ?? ''}'.toLowerCase().contains(q))
         .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Pesan')),
@@ -105,12 +106,12 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
       margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
         onTap: () => _buka(k),
-        leading: CircleAvatar(child: Text(nama.isEmpty ? '?' : nama[0].toUpperCase())),
+        leading: AvatarProfil(url: k['foto_url'] as String?, nama: nama),
         title: Text(nama, style: TextStyle(fontWeight: belum > 0 ? FontWeight.bold : FontWeight.w600)),
         subtitle: Text(
           k['terakhir'] != null
               ? '${k['terakhir']}'
-              : '${_peran(k['role'] as String?)}${k['area'] != null ? ' · ${k['area']}' : ''}',
+              : '${(k['jabatan'] as String? ?? _peran(k['role'] as String?))}${k['area'] != null ? ' · ${k['area']}' : ''}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -213,10 +214,15 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
     final c = Theme.of(context).colorScheme.primary;
     return Scaffold(
       appBar: AppBar(
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        titleSpacing: 0,
+        title: Row(children: [
+          AvatarProfil(url: k['foto_url'] as String?, nama: '${k['nama']}', radius: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('${k['nama']}'),
-          Text('${_peran(k['role'] as String?)}${k['area'] != null ? ' · ${k['area']}' : ''}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+            Text('${(k['jabatan'] as String? ?? _peran(k['role'] as String?))}${k['area'] != null ? ' · ${k['area']}' : ''}',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+          ])),
         ]),
       ),
       body: Column(children: [

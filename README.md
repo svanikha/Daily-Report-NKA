@@ -33,6 +33,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 18. `supabase/tahap2g.sql` → notifikasi HP prioritas tertinggi (layar kunci, spanduk) + tes notifikasi. Setelah itu deploy ulang edge function **kirim-notif**.
 19. `supabase/tahap2h.sql` → edit penjualan PC (bulan berjalan), insentif hari ini, export data Excel.
 20. `supabase/tahap2i.sql` → pesan ke PC hanya terlihat pengirim, pesan pribadi antar TL/Trainer/PIC. Setelah itu deploy ulang edge function **kirim-notif**.
+21. `supabase/tahap2j.sql` → akun Manajer Trainer (Akhmad Saifuddin, akses setara PIC), foto profil, kontribusi kategori user. Setelah itu deploy ulang edge function **kirim-notif**.
 
 ## Peran
 

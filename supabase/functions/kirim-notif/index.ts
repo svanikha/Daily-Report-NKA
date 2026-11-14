@@ -159,8 +159,8 @@ async function kirimPengingat(db: SupabaseClient, id: string) {
     await db.from("pengingat").update({ push_ok: false }).eq("id", id);
     return json({ pengingat: id, dikirim: 0, catatan: "HP PC belum terdaftar" });
   }
-  const { data: dari } = await db.from("profiles").select("nama, role").eq("id", pg.dari).maybeSingle();
-  const peran = dari?.role === "tl" ? "TL" : dari?.role === "trainer" ? "Trainer" : "PIC NKA";
+  const { data: dari } = await db.from("profiles").select("*").eq("id", pg.dari).maybeSingle();
+  const peran = dari?.jabatan ?? (dari?.role === "tl" ? "TL" : dari?.role === "trainer" ? "Trainer" : "PIC NKA");
   const judul = `Pengingat dari ${dari?.nama ?? "atasan"} (${peran})`;
 
   const ok = await kirimPush(db, sa, pc as Profil, judul, pg.pesan, {
@@ -185,8 +185,10 @@ async function kirimRespon(db: SupabaseClient, id: string) {
   if (!atasan?.fcm_token) return json({ respon: id, dikirim: 0, catatan: "HP pengirim belum terdaftar" });
   const { data: pc } = await db.from("profiles").select("nama").eq("id", pg.pc_id).maybeSingle();
   const { data: toko } = await db.from("stores").select("nama").eq("id", pg.store_id).maybeSingle();
-  const ok = await kirimPush(db, sa, atasan as Profil, `${pc?.nama ?? "PC"}: ${pg.respon ?? "Siap"} 👍`,
-    `${toko?.nama ?? ""} · membalas pesanmu: ${pg.pesan}`,
+  const siap = !pg.respon || pg.respon === "Siap";
+  const ok = await kirimPush(db, sa, atasan as Profil,
+    siap ? `${pc?.nama ?? "PC"}: Siap 👍` : `💬 ${pc?.nama ?? "PC"} membalas: ${pg.respon}`,
+    `${toko?.nama ?? ""} · pesanmu: ${pg.pesan}`,
     { jenis: "respon_pengingat", store_id: String(pg.store_id), pengingat_id: String(pg.id) }, `respon-${pg.id}`);
   return json({ respon: id, dikirim: ok ? 1 : 0 });
 }
@@ -199,8 +201,8 @@ async function kirimPesan(db: SupabaseClient, id: string) {
   if (!m) return json({ pesan: id, dikirim: 0, catatan: "pesan tidak ada" });
   const { data: ke } = await db.from("profiles").select("*").eq("id", m.ke).maybeSingle();
   if (!ke?.fcm_token) return json({ pesan: id, dikirim: 0, catatan: "HP penerima belum terdaftar" });
-  const { data: dari } = await db.from("profiles").select("nama, role").eq("id", m.dari).maybeSingle();
-  const ok = await kirimPush(db, sa, ke as Profil, `💬 ${dari?.nama ?? "Atasan"} (${labelPeran(dari?.role)})`, m.isi,
+  const { data: dari } = await db.from("profiles").select("*").eq("id", m.dari).maybeSingle();
+  const ok = await kirimPush(db, sa, ke as Profil, `💬 ${dari?.nama ?? "Atasan"} (${dari?.jabatan ?? labelPeran(dari?.role)})`, m.isi,
     { jenis: "pesan", dari: String(m.dari), pesan_id: String(m.id) }, `pesan-${m.dari}`);
   return json({ pesan: id, dikirim: ok ? 1 : 0 });
 }

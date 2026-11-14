@@ -159,7 +159,7 @@ class _PengingatPcCardState extends State<PengingatPcCard> {
     try {
       final rows = asList(await Session.db
           .from('pengingat')
-          .select('id,pesan,created_at,profiles!pengingat_dari_fkey(nama,role)')
+          .select('id,pesan,created_at,profiles!pengingat_dari_fkey(nama,role,jabatan)')
           .eq('pc_id', me.id)
           .isFilter('dibaca_pada', null)
           .order('created_at', ascending: false)
@@ -169,23 +169,58 @@ class _PengingatPcCardState extends State<PengingatPcCard> {
   }
 
   /// Balas "Siap 👍" (satu pengingat, atau semua jika id null). Atasan menerima notifikasi.
-  Future<void> _siap([String? id]) async {
+  Future<void> _siap([String? id, String balasan = 'Siap']) async {
     setState(() => _list = id == null ? [] : _list.where((r) => '${r['id']}' != id).toList());
     try {
-      await Session.db.rpc('respon_pengingat', params: {'p_id': id, 'p_respon': 'Siap'});
+      await Session.db.rpc('respon_pengingat', params: {'p_id': id, 'p_respon': balasan});
     } catch (_) {
       // Server belum mendukung balasan (tahap2f.sql): cukup tandai dibaca
       try {
         await Session.db.rpc('baca_pengingat', params: {'p_id': id});
       } catch (_) {}
     }
-    if (mounted) showMsg(context, 'Balasan "Siap 👍" terkirim ke atasan');
+    if (mounted) showMsg(context, balasan == 'Siap' ? 'Balasan "Siap 👍" terkirim ke atasan' : 'Balasan terkirim ke atasan');
     _load();
+  }
+
+  /// Balas dengan pesan sendiri (hanya dikirim ke atasan pengirim).
+  Future<void> _balas(Map<String, dynamic> r) async {
+    final c = TextEditingController();
+    final teks = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Balas ${_dari(r)}'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${r['pesan']}', style: Theme.of(ctx).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          TextField(
+            controller: c,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 500,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(hintText: 'Tulis balasan, misal: Siap, stok sudah diupdate'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, c.text.trim()),
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text('Kirim'),
+          ),
+        ],
+      ),
+    );
+    c.dispose();
+    if (teks == null || teks.isEmpty) return;
+    await _siap('${r['id']}', teks);
   }
 
   String _dari(Map<String, dynamic> r) {
     final p = asMap(r['profiles']);
-    final peran = switch ('${p['role']}') { 'tl' => 'TL', 'trainer' => 'Trainer', _ => 'PIC NKA' };
+    final peran = p['jabatan'] ?? switch ('${p['role']}') { 'tl' => 'TL', 'trainer' => 'Trainer', _ => 'PIC NKA' };
     return '${p['nama'] ?? 'Atasan'} ($peran)';
   }
 
@@ -216,6 +251,12 @@ class _PengingatPcCardState extends State<PengingatPcCard> {
                   Expanded(
                     child: Text('${_dari(r)} · ${waktuSingkat(parseWib('${r['created_at']}'))}',
                         style: Theme.of(context).textTheme.bodySmall),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _balas(r),
+                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                    icon: const Icon(Icons.reply, size: 18),
+                    label: const Text('Balas'),
                   ),
                   FilledButton.tonal(
                     onPressed: () => _siap('${r['id']}'),
@@ -280,7 +321,8 @@ class _RiwayatPengingatState extends State<RiwayatPengingat> {
     final Color c;
     final IconData ic;
     if (r['respon'] != null) {
-      status = '${r['respon']} 👍 ${r['respon_pada'] == null ? '' : jamMenit(parseWib('${r['respon_pada']}'))}';
+      final jam = r['respon_pada'] == null ? '' : ' ${jamMenit(parseWib('${r['respon_pada']}'))}';
+      status = r['respon'] == 'Siap' ? 'Siap 👍$jam' : 'Dibalas$jam';
       c = Colors.green.shade700;
       ic = Icons.done_all;
     } else if (r['dibaca_pada'] != null) {
@@ -306,6 +348,13 @@ class _RiwayatPengingatState extends State<RiwayatPengingat> {
             Text('${r['pesan']}', style: const TextStyle(fontSize: 12.5), maxLines: 2, overflow: TextOverflow.ellipsis),
             Text('${asMap(r['profiles'])['nama'] ?? ''} · ${waktuSingkat(parseWib('${r['created_at']}'))}',
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            if (r['respon'] != null && r['respon'] != 'Siap')
+              Container(
+                margin: const EdgeInsets.only(top: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                child: Text('Balasan PC: ${r['respon']}', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+              ),
           ]),
         ),
         const SizedBox(width: 6),
