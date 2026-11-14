@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
 
 import '../../data/nka.dart';
+import '../../services/presence_service.dart';
 import '../../services/session.dart';
 import '../../utils.dart';
 import '../../widgets/avatar.dart';
@@ -26,10 +29,13 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
   String? _error;
   String _q = '';
   RealtimeChannel? _ch;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    // Perbarui lampu online setiap 1 menit
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _load());
     _load().then((_) {
       final id = widget.bukaDari;
       if (id == null || !mounted) return;
@@ -49,9 +55,28 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     final c = _ch;
     if (c != null) Session.db.removeChannel(c);
     super.dispose();
+  }
+
+  Future<void> _hapusSemua() async {
+    final ok = await confirmDialog(
+      context,
+      'Hapus semua riwayat chat?',
+      'SEMUA pesan antar TL, Trainer, PIC, dan Manajer Trainer (milik semua orang) akan dihapus permanen. '
+          'Tindakan ini tidak bisa dibatalkan.',
+      yes: 'Hapus semua',
+    );
+    if (!ok) return;
+    try {
+      final n = toNum(await Session.db.rpc('hapus_semua_pesan')).toInt();
+      if (mounted) showMsg(context, ' pesan dihapus');
+      _load();
+    } catch (e) {
+      if (mounted) showErr(context, e);
+    }
   }
 
   Future<void> _load() async {
@@ -76,7 +101,26 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
         .where((k) => q.isEmpty || '${k['nama']} ${(k['jabatan'] as String? ?? _peran(k['role'] as String?))} ${k['area'] ?? ''}'.toLowerCase().contains(q))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Pesan')),
+      appBar: AppBar(
+        title: const Text('Pesan'),
+        actions: [
+          if (Session.current?.isPic ?? false)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'hapus') _hapusSemua();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'hapus',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_forever, color: Colors.red.shade700),
+                    title: Text('Hapus semua riwayat chat', style: TextStyle(color: Colors.red.shade700)),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -106,8 +150,30 @@ class _PesanKontakScreenState extends State<PesanKontakScreen> {
       margin: const EdgeInsets.only(bottom: 4),
       child: ListTile(
         onTap: () => _buka(k),
-        leading: AvatarProfil(url: k['foto_url'] as String?, nama: nama),
-        title: Text(nama, style: TextStyle(fontWeight: belum > 0 ? FontWeight.bold : FontWeight.w600)),
+        leading: Stack(clipBehavior: Clip.none, children: [
+          AvatarProfil(url: k['foto_url'] as String?, nama: nama),
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              padding: const EdgeInsets.all(1.5),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: LampuOnline(online: StatusOnline.dari(k, parseWib).online, size: 11),
+            ),
+          ),
+        ]),
+        title: Row(children: [
+          Flexible(
+            child: Text(nama,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: belum > 0 ? FontWeight.bold : FontWeight.w600)),
+          ),
+          const SizedBox(width: 6),
+          Text(StatusOnline.dari(k, parseWib).online ? 'Online' : 'Offline',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: StatusOnline.dari(k, parseWib).online ? Colors.green.shade700 : Colors.red.shade700)),
+        ]),
         subtitle: Text(
           k['terakhir'] != null
               ? '${k['terakhir']}'
@@ -146,6 +212,8 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
   bool _loading = true;
   bool _kirim = false;
   RealtimeChannel? _ch;
+  Timer? _timer;
+  late StatusOnline _status = StatusOnline.dari(widget.kontak, parseWib);
 
   String get _lawan => '${widget.kontak['id']}';
   String get _me => Session.current!.id;
@@ -154,6 +222,8 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
   void initState() {
     super.initState();
     _load();
+    _cekStatus();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) => _cekStatus());
     _ch = Session.db
         .channel('pesan_chat_${_me}_$_lawan')
         .onPostgresChanges(
@@ -170,6 +240,7 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
 
   @override
   void dispose() {
+    _timer?.cancel();
     final c = _ch;
     if (c != null) Session.db.removeChannel(c);
     _isi.dispose();
@@ -192,6 +263,30 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
       if (mounted) showErr(context, e);
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _cekStatus() async {
+    try {
+      final s = asMap(await Session.db.rpc('status_atasan', params: {'p_id': _lawan}));
+      if (mounted && s.isNotEmpty) setState(() => _status = StatusOnline.dari(s, parseWib));
+    } catch (_) {}
+  }
+
+  Future<void> _hapusPercakapan() async {
+    final ok = await confirmDialog(
+      context,
+      'Hapus percakapan ini?',
+      'Semua pesan antara kamu dan ${widget.kontak['nama']} dihapus permanen untuk kalian berdua.',
+      yes: 'Hapus',
+    );
+    if (!ok) return;
+    try {
+      await Session.db.rpc('hapus_percakapan', params: {'p_lawan': _lawan});
+      await _load();
+      if (mounted) showMsg(context, 'Percakapan dihapus');
+    } catch (e) {
+      if (mounted) showErr(context, e);
+    }
   }
 
   Future<void> _send() async {
@@ -222,8 +317,34 @@ class _PesanChatScreenState extends State<PesanChatScreen> {
           Text('${k['nama']}'),
             Text('${(k['jabatan'] as String? ?? _peran(k['role'] as String?))}${k['area'] != null ? ' · ${k['area']}' : ''}',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              LampuOnline(online: _status.online, size: 9),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(teksStatus(_status),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.normal)),
+              ),
+            ]),
           ])),
         ]),
+        actions: [
+          if (Session.current?.isPic ?? false)
+            PopupMenuButton<String>(
+              onSelected: (v) {
+                if (v == 'hapus') _hapusPercakapan();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'hapus',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: Colors.red.shade700),
+                    title: Text('Hapus percakapan ini', style: TextStyle(color: Colors.red.shade700)),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: Column(children: [
         Expanded(
