@@ -212,7 +212,7 @@ type Objek = { name: string; size: number };
 /**
  * Pembersihan penyimpanan (dipanggil cron harian 02.00 WIB atau tombol PIC):
  * foto bukti > N hari, APK lama (simpan 5 terbaru per saluran), dan jika masih >= 80% kuota,
- * foto tertua dihapus sampai < 70% (foto 7 hari terakhir tetap disimpan).
+ * foto tertua dihapus sampai < 70% (foto N hari terakhir tetap disimpan, pengaturan simpan_minimal_hari).
  */
 async function bersihkan(db: SupabaseClient, token: string, pemicu: string) {
   const { data: set } = await db.from("pengaturan").select("*");
@@ -265,15 +265,16 @@ async function bersihkan(db: SupabaseClient, token: string, pemicu: string) {
   const { data: apkLama } = await db.rpc("apk_lama", { p_simpan: simpanApk });
   if ((apkLama ?? []).length > 0) await hapus("apk", apkLama as Objek[]);
 
-  // 3. Masih >= batas % kuota: hapus foto tertua (simpan 7 hari terakhir) sampai < target %
+  // 3. Masih >= batas % kuota: hapus foto tertua (simpan N hari terakhir) sampai < target %
   let sekarang = await ukur();
   if (sekarang >= (kuota * batas) / 100) {
-    const tujuh = new Date(Date.now() - 7 * 86400000).toISOString();
+    const minimal = Number(p.simpan_minimal_hari || 1);
+    const tujuh = new Date(Date.now() - minimal * 86400000).toISOString();
     for (let n = 0; n < 50 && sekarang > (kuota * target) / 100; n++) {
       const { data } = await db.rpc("objek_storage", { p_bucket: "bukti", p_sebelum: tujuh, p_limit: 200 });
       const rows = (data ?? []) as Objek[];
       if (rows.length === 0) {
-        catatan.push("masih di atas batas, tetapi tinggal foto 7 hari terakhir");
+        catatan.push(`masih di atas batas, tetapi tinggal foto ${minimal} hari terakhir`);
         break;
       }
       await hapus("bukti", rows);

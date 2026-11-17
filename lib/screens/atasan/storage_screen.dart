@@ -140,7 +140,7 @@ class _StorageScreenState extends State<StorageScreen> {
         'Hapus otomatis setiap hari pukul 02.00 WIB:\n'
         '• Foto bukti PC lebih tua dari ${r['umur_hari']} hari\n'
         '• APK lama (5 versi terbaru disimpan)\n'
-        '• Jika masih ≥ $batas% kuota: foto tertua ikut dihapus sampai di bawah 70% (foto 7 hari terakhir aman)\n'
+        '• Jika masih ≥ $batas% kuota: foto tertua ikut dihapus sampai di bawah 70% (foto 1 hari terakhir aman)\n'
         'Foto profil tidak pernah dihapus.',
         icon: Icons.auto_delete,
       ),

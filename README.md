@@ -37,6 +37,7 @@ input Rajawali / PC offday, jadwal offday, produk & harga, target bulanan.
 22. `supabase/tahap2k.sql` → lampu online di chat atasan, Manajer/PIC bisa hapus riwayat chat.
 23. `supabase/tahap2l.sql` → hapus otomatis foto bukti > 30 hari / storage ≥ 80% dan APK lama (setiap 02.00 WIB). Setelah itu deploy ulang edge function **kirim-notif**.
 24. `supabase/tahap2m.sql` → jenis activity bisa ditambah atasan + kewajiban activity harian per area.
+25. `supabase/tahap2n.sql` → foto PC hanya disimpan 4 hari (pembersihan 02.00 WIB). Setelah itu deploy ulang edge function **kirim-notif**.
 
 ## Peran
 
