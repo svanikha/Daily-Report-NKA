@@ -32,6 +32,9 @@ dependencies:
   permission_handler: ^12.0.0
   # Export data ke Excel (.xlsx) untuk TL, Trainer, PIC
   excel: ^4.0.6
+  # Foto disimpan di memori HP agar tidak diunduh ulang (hemat cached egress Supabase)
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.1
 
 flutter:
   uses-material-design: true

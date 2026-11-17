@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/foto_cache.dart';
 import '../services/photo_service.dart';
 import 'widgets.dart';
 
@@ -127,27 +128,7 @@ class PhotoViewerPage extends StatefulWidget {
 }
 
 class _PhotoViewerPageState extends State<PhotoViewerPage> {
-  final Map<String, String> _urls = {};
-  String? _error;
   int _index = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      for (final p in widget.photos) {
-        final path = p['path'] as String;
-        _urls[path] = await PhotoService.signedUrl(path);
-      }
-    } catch (e) {
-      _error = errMsg(e);
-    }
-    if (mounted) setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,34 +138,39 @@ class _PhotoViewerPageState extends State<PhotoViewerPage> {
         backgroundColor: Colors.black,
         title: Text('${widget.title} (${_index + 1}/${widget.photos.length})'),
       ),
-      body: _error != null
-          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white)))
-          : PageView.builder(
-              itemCount: widget.photos.length,
-              onPageChanged: (i) => setState(() => _index = i),
-              itemBuilder: (_, i) {
-                final p = widget.photos[i];
-                final url = _urls[p['path']];
-                return Stack(children: [
-                  Positioned.fill(
-                    child: url == null
+      body: PageView.builder(
+        itemCount: widget.photos.length,
+        onPageChanged: (i) => setState(() => _index = i),
+        itemBuilder: (_, i) {
+          final p = widget.photos[i];
+          return Stack(children: [
+            Positioned.fill(
+              // Foto disimpan di memori HP: dibuka kedua kali tidak diunduh ulang dari server
+              child: FutureBuilder<ImageProvider>(
+                future: FotoCache.gambar('${p['path']}'),
+                builder: (_, snap) => snap.hasError
+                    ? const Center(
+                        child: Text('Foto tidak tersedia (mungkin sudah dihapus otomatis)',
+                            style: TextStyle(color: Colors.white70)))
+                    : !snap.hasData
                         ? const Center(child: CircularProgressIndicator())
-                        : InteractiveViewer(child: Image.network(url, fit: BoxFit.contain)),
-                  ),
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    right: 12,
-                    child: Wrap(spacing: 4, runSpacing: 4, children: [
-                      Pill(p['sumber'] == 'galeri' ? 'Dari galeri' : 'Dari kamera',
-                          color: p['sumber'] == 'galeri' ? Colors.orange : Colors.lightGreenAccent),
-                      for (final f in (p['flags'] is List ? p['flags'] as List : const []))
-                        Pill(flagLabel['$f'] ?? '$f', color: Colors.redAccent),
-                    ]),
-                  ),
-                ]);
-              },
+                        : InteractiveViewer(child: Image(image: snap.data!, fit: BoxFit.contain)),
+              ),
             ),
+            Positioned(
+              left: 12,
+              top: 12,
+              right: 12,
+              child: Wrap(spacing: 4, runSpacing: 4, children: [
+                Pill(p['sumber'] == 'galeri' ? 'Dari galeri' : 'Dari kamera',
+                    color: p['sumber'] == 'galeri' ? Colors.orange : Colors.lightGreenAccent),
+                for (final f in (p['flags'] is List ? p['flags'] as List : const []))
+                  Pill(flagLabel['$f'] ?? '$f', color: Colors.redAccent),
+              ]),
+            ),
+          ]);
+        },
+      ),
     );
   }
 }

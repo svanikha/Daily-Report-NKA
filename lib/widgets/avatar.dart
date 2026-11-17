@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide Session;
@@ -22,7 +23,7 @@ class AvatarProfil extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey.shade300,
-      backgroundImage: NetworkImage(u),
+      backgroundImage: CachedNetworkImageProvider(u),
       onBackgroundImageError: (_, __) {},
     );
   }
@@ -69,9 +70,9 @@ Future<void> gantiFotoProfil(BuildContext context) async {
       final x = await ImagePicker().pickImage(
         source: sumber == 'kamera' ? ImageSource.camera : ImageSource.gallery,
         preferredCameraDevice: CameraDevice.front,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
+        maxWidth: 256,
+        maxHeight: 256,
+        imageQuality: 75,
       );
       if (x == null) return;
       final bytes = await x.readAsBytes();

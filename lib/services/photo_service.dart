@@ -86,8 +86,9 @@ Uint8List _processPhoto(Map<String, dynamic> a) {
   var im = img.decodeImage(raw);
   if (im == null) return raw;
   im = img.bakeOrientation(im);
-  if (im.width > 1280 || im.height > 1280) {
-    im = im.width >= im.height ? img.copyResize(im, width: 1280) : img.copyResize(im, height: 1280);
+  // 960 px kualitas 65: tetap jelas sebagai bukti, ukuran file ±40-50% lebih kecil (hemat storage & egress)
+  if (im.width > 960 || im.height > 960) {
+    im = im.width >= im.height ? img.copyResize(im, width: 960) : img.copyResize(im, height: 960);
   }
   const lineH = 30;
   final barH = lines.length * lineH + 12;
@@ -109,7 +110,7 @@ Uint8List _processPhoto(Map<String, dynamic> a) {
       color: img.ColorRgb8(255, 255, 255),
     );
   }
-  return img.encodeJpg(im, quality: 75);
+  return img.encodeJpg(im, quality: 65);
 }
 
 DateTime? _exifInIsolate(Uint8List raw) => _exifDate(raw);
