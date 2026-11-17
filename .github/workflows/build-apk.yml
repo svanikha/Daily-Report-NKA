@@ -171,8 +171,21 @@ jobs:
           name: DailyReportNKA-v1.0.${{ github.run_number }}-uji
           path: DailyReportNKA-v1.0.${{ github.run_number }}.apk
 
-      # Update di dalam aplikasi: unggah APK + latest.json ke bucket publik "apk" di Supabase.
-      - name: Unggah APK untuk update di aplikasi (Supabase)
+      # APK disimpan di GitHub Releases (repo publik): unduhan HP tidak memakai kuota egress Supabase.
+      - name: Upload APK ke GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Daily Report NKA v1.0.${{ github.run_number }}
+          body: |
+            APK Daily Report NKA build ${{ github.run_number }}.
+            Download file .apk di bawah lalu install di HP Android.
+          files: DailyReportNKA-v1.0.${{ github.run_number }}.apk
+          prerelease: ${{ github.ref != 'refs/heads/main' }}
+          make_latest: ${{ github.ref == 'refs/heads/main' }}
+
+      # Update di dalam aplikasi: latest*.json (kecil) di bucket publik "apk" Supabase menunjuk ke APK di GitHub Releases.
+      - name: Perbarui info versi untuk update di aplikasi (Supabase)
         env:
           SB_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SB_URL: ${{ vars.SUPABASE_URL }}
@@ -187,12 +200,13 @@ jobs:
           AUTH=(-H "apikey: $SB_KEY")
           case "$SB_KEY" in eyJ*) AUTH+=(-H "Authorization: Bearer $SB_KEY");; esac
           ls -lh "$F" | tee -a ci-log.txt
-          curl -sS --fail-with-body -X POST "$BASE/apk/$CH/$F" "${AUTH[@]}" \
-            -H "x-upsert: true" -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @"$F"
+          # APK TIDAK lagi diunggah ke Supabase (hemat cached egress); link menunjuk ke GitHub Releases.
+          GH_URL="https://github.com/${{ github.repository }}/releases/download/v1.0.$N/$F"
+          # Pastikan file di GitHub sudah bisa diunduh sebelum HP diberi tahu
+          curl -sSfLI "$GH_URL" -o /dev/null && echo "APK tersedia: $GH_URL" | tee -a ci-log.txt
           MSG="$(git log -1 --format=%s)"
           jq -n --argjson code "$N" --arg name "1.0.$N" --arg msg "$MSG" \
-            --arg url "$SB_URL/storage/v1/object/public/apk/$CH/$F" \
+            --arg url "$GH_URL" \
             '{version_code: $code, version_name: $name, url: $url, catatan: ""}' > latest.json
           cat latest.json
           # [tes] di pesan commit: update otomatis HANYA untuk akun PIC NKA (latest_pic.json).
@@ -201,7 +215,7 @@ jobs:
             curl -sS --fail-with-body -X POST "$BASE/apk/$CH/latest_pic.json" "${AUTH[@]}" \
               -H "x-upsert: true" -H "cache-control: max-age=60" -H "Content-Type: application/json" \
               --data-binary @latest.json
-            echo "Mode TES: update hanya untuk PIC NKA. Link: $SB_URL/storage/v1/object/public/apk/$CH/$F" | tee -a ci-log.txt
+            echo "Mode TES: update hanya untuk PIC NKA. Link: $GH_URL" | tee -a ci-log.txt
             exit 0
           fi
           # latest_sm.json: selalu diperbarui, dibaca akun TL, Trainer, dan PIC NKA.
@@ -217,18 +231,6 @@ jobs:
           else
             echo "Update hanya untuk TL, Trainer, PIC" | tee -a ci-log.txt
           fi
-
-      - name: Upload APK ke Releases
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Daily Report NKA v1.0.${{ github.run_number }}
-          body: |
-            APK Daily Report NKA build ${{ github.run_number }}.
-            Download file .apk di bawah lalu install di HP Android.
-          files: DailyReportNKA-v1.0.${{ github.run_number }}.apk
-          make_latest: true
 
   # Versi web untuk TL, Trainer, dan PIC NKA, di-deploy ke Firebase Hosting.
   # Butuh variable FIREBASE_HOSTING_PROJECT dan secret FIREBASE_HOSTING_SA.
